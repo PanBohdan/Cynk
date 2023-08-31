@@ -1602,14 +1602,15 @@ class InventoryView(GenericView):
 
     def get_embeds(self):
         embed_list = []
-        our_items = deepcopy(self.pages[self.page])
-        if not our_items[-1]:
-            our_items.pop()
+        if self.pages:
+            our_items = deepcopy(self.pages[self.page])
+            if not our_items[-1]:
+                our_items.pop()
 
-        for item in our_items:
-            embed_list.append(
-                get_item_embed(item, self.body_part_translation_data, self.translation_data, self.embed_data,
-                               self.localization, self.mode))
+            for item in our_items:
+                embed_list.append(
+                    get_item_embed(item, self.body_part_translation_data, self.translation_data, self.embed_data,
+                                   self.localization, self.mode))
         return embed_list
 
 
