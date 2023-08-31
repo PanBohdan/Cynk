@@ -1,3 +1,8 @@
+
+try:
+    from secret import *
+except ImportError:
+    pass
 import os
 
 from pymongo import MongoClient
