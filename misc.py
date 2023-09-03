@@ -9,7 +9,7 @@ from io import BytesIO
 from db import get_localized_answer, characters, languages, localized_data, events, get_item_from_translation_dict, \
     items
 from db_clases import User, Character, Server
-from static import SKILLS, STATS, FACTIONS, CAN_BE_CHANGED_IN_CHAR, ARMOR_TYPES, HEALTH_COORDS
+from static import SKILLS, STATS, FACTIONS, CAN_BE_CHANGED_IN_CHAR, HEALTH_COORDS
 from PIL import Image, ImageDraw, ImageFont
 from placeholders import char_image_placeholder
 
@@ -125,64 +125,6 @@ async def universal_updater(i: discord.Interaction, name: str, what_to_update: s
               Server(i.guild_id).server['char_change_log'])
     return f'{char.char["name"]}\n{locale_name.capitalize()} = {value}\n{data}'
 
-
-async def damage(i: discord.Interaction, name: str, damage_type: str, num: int, damage_armor: int):
-    localization = User(i.user.id, i.guild_id).get_localization()
-    char = get_char(i, name, False, False)
-    equipped = char.read_equipped()[0]['equipped']
-    if damage_type == 'body_armor_points' or damage_type == 'head_armor_points':
-        armor_or_helmet = None
-        if damage_type == 'body_armor_points':
-            excluded = 'head'
-            damaged = 'body_armor_points'
-        else:
-            excluded = 'armor'
-            damaged = 'head_armor_points'
-        n = 0
-        for n, item in enumerate(equipped):
-            if item['type'] in ARMOR_TYPES and not item['type'] == excluded:
-                armor_or_helmet = item
-                break
-        if not armor_or_helmet:
-            if damaged == 'head_armor_points':
-                await universal_updater(i, name, 'hp', -num * 3, 1)
-            else:
-                await universal_updater(i, name, 'hp', -num, 1)
-            return
-        if -num + armor_or_helmet[damaged] < 0:
-            if damaged == 'head_armor_points':
-                await universal_updater(i, name, 'hp', (-num + armor_or_helmet[damaged]) * 3, 1)
-            else:
-                await universal_updater(i, name, 'hp', -num + armor_or_helmet[damaged], 1)
-        char.damage_or_repair_item_at_idx(n, armor_or_helmet['_id'], damaged.split('_')[0], damage_armor)
-    else:
-        resistance = 0
-        helmet = None
-        helmet_idx = None
-        armor = None
-        armor_idx = None
-        for n, item in enumerate(equipped):
-            resistance += item.get(damage_type, 0)
-            if item['type'] == item['type'] in ARMOR_TYPES and not item['type'] == 'armor':
-                helmet = item
-                helmet_idx = n
-            if item['type'] in ARMOR_TYPES and not item['type'] == 'helmet':
-                armor = item
-                armor_idx = n
-        if damage_type == 'psi_resistance':
-            if -num + resistance < 0:
-                await universal_updater(i, name, 'psi_hp', -num + resistance, 1)
-        else:
-            if -num + resistance < 0:
-                await universal_updater(i, name, 'hp', -num + resistance, 1)
-            if helmet:
-                char.damage_or_repair_item_at_idx(helmet_idx, helmet['_id'], "head", damage_armor)
-            if armor:
-                char.damage_or_repair_item_at_idx(armor_idx, armor['_id'], "body", damage_armor)
-
-    char.update_char()
-    dead, data = char.check_for_death(localization)
-    # await i.response.send_message(content=f'{char.char["name"]}\n{data}')
 
 
 def get_char(i, name, belongs_to_player=True, fuzzy_search_allowed=True):

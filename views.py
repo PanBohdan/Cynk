@@ -17,7 +17,7 @@ from bson.json_util import dumps
 from db import localized_data, characters, get_item_from_translation_dict, map_collection
 from db_clases import Character, User
 from static import SKILLS, CAN_BE_STR_IN_CHAR, CAN_BE_INT_IN_CHAR, FACTION_EMOJIS, \
-    AVAILABLE_FACTIONS, RESIST_LIST, RESIST_EMOJIS, EMOJIS, FACTIONS, CAN_BE_MODIFIED, ARMOR_TYPES, HEALTH_DEBUFFS, \
+    AVAILABLE_FACTIONS, RESIST_LIST, RESIST_EMOJIS, EMOJIS, FACTIONS, CAN_BE_MODIFIED,  HEALTH_DEBUFFS, \
     SHOOT_OPTIONS, PLATE_CARRIER_ZONES
 from misc import chunker, get_localized_answer, log, \
     set_stat_or_skill, lvl_up, get_stat, get_char, roll_stat, gm_check, check_for_none, universal_updater, Server, \
@@ -1385,6 +1385,8 @@ class SelectItem(Select):
     def replace_options(self):
         self.placeholder = None
         opts = deepcopy(self.view.pages[self.view.page])
+        if not opts:
+            return
         if not opts[-1]:
             opts.pop()
 
@@ -1485,7 +1487,7 @@ class InventoryView(GenericView):
         if not character or type(character) == bson.ObjectId:
             character = get_char(i, character)
         self.character = character
-        self.inventory, _, self.dict_of_inv_mods, self.dict_of_eq_mods = character.read_inv()
+        self.inventory, self.weight, self.dict_of_inv_mods, self.dict_of_eq_mods = character.read_inv()
         self.max_on_page = 5
         self.use_btn = UseButton(self.localization)
         self.equip_btn = EquipButton(self.localization)
@@ -1576,7 +1578,7 @@ class InventoryView(GenericView):
             self.add_item(self.back_btn)
 
     def replace_pages(self):
-        self.inventory, _, _, _ = self.character.read_inv()
+        self.inventory, self.weight, self.dict_of_inv_mods, self.dict_of_eq_mods = self.character.read_inv()
         equipped = split_to_ns(self.inventory['equipped'], self.max_on_page)
         if equipped:
             equipped = list(map(lambda x: x + [False], equipped))
@@ -1596,7 +1598,8 @@ class InventoryView(GenericView):
                 equipped_item_str = get_item_from_translation_dict(self.translation_data, self.localization,
                                                                    'inventory')
             return (f'{equipped_item_str} {self.character.char["name"]}  {self.page + 1}/{len(self.pages)} '
-                    f'{get_item_from_translation_dict(self.translation_data, self.localization, str(self.mode))}')
+                    f'{get_item_from_translation_dict(self.translation_data, self.localization, str(self.mode))} |'
+                    f' {self.weight} кг.')
         else:
             return 'empty'  # TODO: add localization
 
@@ -1718,7 +1721,7 @@ def get_item_embed(item, body_part_translation_data, translation_data, embed_dat
                     if plate := item.get(body_part, 0):
                         misc_text += f' {get_item_from_translation_dict(body_part_translation_data, localization, body_part)} - {plate}'
             case 'medicine':
-                misc_text += f" ({item['max_healing_potential'] - item.get('healing', 0)}/{item['max_healing_potential']}) "
+                misc_text += f" ({item.get('max_healing_potential', 0)- item.get('healing', 0)}/{item.get('max_healing_potential', 0)}) "
         if misc_text:
             embed.add_field(name=get_item_from_translation_dict(embed_data, localization, "other"), value=misc_text,
                             inline=inline)
@@ -1765,8 +1768,6 @@ class ModifyItemView(GenericView):
                 max_mods = item['modification_slots']
                 for mod in item['modifications']:
                     max_mods -= dict_of_eq_mods[mod]['modification_slots']
-                if self.item['type'] in ARMOR_TYPES:
-                    accepted_types.append(1)
                 if self.item['type'] == 'exoskeleton':
                     accepted_types.append(2)
                 for mod in self.inventory:
@@ -2509,7 +2510,7 @@ class HealSelect(Select):
     def get_options(localization, character, body_part):
         opts = [SelectOption(
             label=f"{item['quantity']}шт. {get_item_from_translation_dict(item['localization'], localization, 'name')} ({item['max_healing_potential'] - item.get('healing', 0)}/{item['max_healing_potential']})",
-            value=f"{item['_id']}|{idx}") for item, idx in get_available_medicine(character, body_part)][:25]
+            value=f"{item['_id']}|{idx}") for item, idx in get_available_medicine(character, body_part) if item.get('max_healing_potential')][:25]
         if not opts:
             opts.append(SelectOption(label='...', value='none'))
         return opts

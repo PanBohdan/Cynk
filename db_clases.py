@@ -370,9 +370,14 @@ class Character:
                 plates = itm.get('plates', {})
                 for body_part_name in PLATE_CARRIER_ZONES.keys():
                     if plate := plates.get(body_part_name):
-                        itm['plates'][body_part_name] = items.find_one({'_id': plate.get('_id')})
-                        char['inventory'][n]['weight'] = char['inventory'][n]['weight'] + itm['plates'][body_part_name][
-                            'weight']
+                        if not plate.get('localization'):
+                            removed = char['inventory'][n]['plates'].pop(body_part_name)
+                            characters.update_one({'_id': self.u_id},
+                                                  {'$unset': {f'inventory.{n}.plates.{body_part_name}': ''}})
+                        else:
+                            itm['plates'][body_part_name] = items.find_one({'_id': plate.get('_id')})
+                            char['inventory'][n]['weight'] = char['inventory'][n]['weight'] + itm['plates'][body_part_name][
+                                'weight']
 
             item_weight = round(Item.get_item_weight(itm, dict_of_inv_mods), 3)
             char['inventory'][n]['weight'] = item_weight
@@ -387,14 +392,21 @@ class Character:
 
                 continue
 
-            char['equipped'][n]['weight'] = round(Item.get_item_weight(itm, dict_of_eq_mods), 3)
+            item_weight = round(Item.get_item_weight(itm, dict_of_eq_mods), 3)
+            char['equipped'][n]['weight'] = item_weight
             if itm['type'] == 'plate_carrier':
                 plates = itm.get('plates', {})
                 for body_part_name in PLATE_CARRIER_ZONES.keys():
                     if plate := plates.get(body_part_name):
-                        itm['plates'][body_part_name] = items.find_one({'_id': plate.get('_id')})
-                        char['equipped'][n]['weight'] = char['equipped'][n]['weight'] + itm['plates'][body_part_name][
-                            'weight']
+                        if not plate.get('localization'):
+                            characters.update_one({'_id': self.u_id}, {'$unset': {f'equipped.{n}.plates.{body_part_name}': ''}})
+                        else:
+
+                            itm['plates'][body_part_name] = items.find_one({'_id': plate.get('_id')})
+                            char['equipped'][n]['weight'] = char['equipped'][n]['weight'] + itm['plates'][body_part_name][
+                                'weight']
+
+            weight += item_weight * itm['quantity']
 
         return char, weight, dict_of_inv_mods, dict_of_eq_mods
 
@@ -672,12 +684,7 @@ class Character:
 
         # ADD ITEM BUFFS AND DEBUFFS
         inv, weight, inventory_modifications, equipped_modifications = self.read_inv()
-        armor = None
         for item in inv['equipped'] + self.get_profession_list():
-            print(item)
-            if item['type'] in ['armor', 'hazmat_suit', 'full_armor', 'exoskeleton']:
-                armor = item
-
             for buff in item.get('actions_when_equipped', []):
                 if buff['what_to_buff'] in items_to_check:
                     bonus_num += buff['num']
@@ -694,44 +701,9 @@ class Character:
                             bonus_str += f' + {buff["num"]}'
                         else:
                             bonus_str += f' - {buff["num"]}'
-
-        if armor:
-            armor_weight = Item.get_item_weight(armor, equipped_modifications)
-        else:
-            armor_weight = 0
-
-        if items_to_check[0] == 'reflex':
-            if armor:
-                if armor_weight > 15:
-                    bonus_num -= 2
-                    bonus_str += ' - 2'
-                if armor['type'] == 'hazmat_suit':
-                    bonus_num -= 2
-                    bonus_str += ' - 2'
-            max_weight = self.get_max_weight(inv['inventory'], inventory_modifications)
-            if weight > max_weight:
-                weight_debuff = int(numpy.floor((weight - max_weight) / 5))
-                if weight_debuff:
-                    bonus_num -= weight_debuff
-                    bonus_str += f' - {weight_debuff}'
-        elif items_to_check[0] == 'dexterity':
-            if armor:
-                armor_weight = Item.get_item_weight(armor, equipped_modifications)
-                if armor_weight > 15:
-                    bonus_num -= 4
-                    bonus_str += ' - 4'
-                elif armor_weight > 10:
-                    bonus_num -= 2
-                    bonus_str += ' - 2'
-                elif armor_weight > 5:
-                    bonus_num -= 1
-                    bonus_str += ' - 1'
-            max_weight = self.get_max_weight(inv['inventory'], inventory_modifications)
-            if weight > max_weight:
-                weight_debuff = int(numpy.floor((weight - max_weight) / 5))
-                if weight_debuff:
-                    bonus_num -= weight_debuff
-                    bonus_str += f' - {weight_debuff}'
+        if int(numpy.floor(weight/20)) > 0 and stat_or_skill == 'mobility':
+            bonus_num -= int(numpy.floor(weight/20))
+            bonus_str += f' - {int(numpy.floor(weight/20))}'
 
         final_sum += bonus_num
         if bonus_num:
@@ -745,19 +717,6 @@ class Character:
                 else:
                     ret_str += f' - {abs(bonus_num)}' + bonus_str
         return final_sum, ret_str
-
-    def get_max_weight(self, equipped_items, equipped_modifications):
-        bonus_num = 0
-        for item in equipped_items:
-            for buff in item['actions_when_equipped']:
-                if buff['what_to_buff'] == 'max_weight':
-                    bonus_num += buff['num']
-            for modification in item['modifications']:
-                modification = equipped_modifications[modification]
-                for buff in modification['actions_when_equipped']:
-                    if buff['what_to_buff'] == 'max_weight':
-                        bonus_num += buff['num']
-        return self.get_stat_or_skill('body', False)[0] * 5 + bonus_num
 
     def get_hp_limit(self):
         return self.get_stat_or_skill('body', False)[0] * 5 + 15
@@ -909,14 +868,6 @@ class Character:
                     characters.update_one({'_id': self.char['_id']}, request)
                     # cleanup
                     self.update_char()
-                    max_hp = self.get_hp_limit()
-                    max_psychic_hp = self.get_psi_hp_limit()
-                    if self.char['hp'] > max_hp:
-                        characters.update_one({'_id': self.char['_id']}, {'$set': {'hp': max_hp}})
-                    if self.char['psi_hp'] > max_psychic_hp:
-                        characters.update_one({'_id': self.char['_id']}, {'$set': {'psi_hp': max_psychic_hp}})
-                    if self.char['radiation'] < 0:
-                        characters.update_one({'_id': self.char['_id']}, {'$set': {'radiation': 0}})
                 self.remove_item_by_id(u_id)
                 return True, ret_str
 

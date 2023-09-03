@@ -2,8 +2,7 @@ CHAR_TYPES = ['player', 'npc', 'trader', 'mutant', 'dead']
 ITEM_TYPES = ['item',
               'weapon', 'ammo', 'ammo_types',
               'detector', 'artefact',
-              'medicine', 'provision', 'profession']
-ARMOR_TYPES = ['helmet', 'armor', 'full_armor', 'hazmat_suit', 'exoskeleton']
+              'medicine', 'provision', 'profession', 'plate_carrier', 'armor_plate', 'armor']
 CAN_BE_MODIFIED = ['helmet', 'armor', 'full_armor', 'hazmat_suit', 'exoskeleton', 'weapon']
 ITEM_LOCALIZED_FIELDS = ['name', 'description', 'use_effect_name', 'on_use_text']
 USE_ACTION_TYPES = ['instant', 'continuous']
