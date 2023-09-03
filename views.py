@@ -1599,7 +1599,7 @@ class InventoryView(GenericView):
                                                                    'inventory')
             return (f'{equipped_item_str} {self.character.char["name"]}  {self.page + 1}/{len(self.pages)} '
                     f'{get_item_from_translation_dict(self.translation_data, self.localization, str(self.mode))} |'
-                    f' {self.weight} кг.')
+                    f' {round(self.weight, 3)} кг.')
         else:
             return 'empty'  # TODO: add localization
 

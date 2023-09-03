@@ -370,8 +370,7 @@ class Character:
                 plates = itm.get('plates', {})
                 for body_part_name in PLATE_CARRIER_ZONES.keys():
                     if plate := plates.get(body_part_name):
-                        if not plate.get('localization'):
-                            removed = char['inventory'][n]['plates'].pop(body_part_name)
+                        if not items.find_one({'_id': plate.get('_id')}):
                             characters.update_one({'_id': self.u_id},
                                                   {'$unset': {f'inventory.{n}.plates.{body_part_name}': ''}})
                         else:
@@ -398,10 +397,9 @@ class Character:
                 plates = itm.get('plates', {})
                 for body_part_name in PLATE_CARRIER_ZONES.keys():
                     if plate := plates.get(body_part_name):
-                        if not plate.get('localization'):
+                        if not items.find_one({'_id': plate.get('_id')}):
                             characters.update_one({'_id': self.u_id}, {'$unset': {f'equipped.{n}.plates.{body_part_name}': ''}})
                         else:
-
                             itm['plates'][body_part_name] = items.find_one({'_id': plate.get('_id')})
                             char['equipped'][n]['weight'] = char['equipped'][n]['weight'] + itm['plates'][body_part_name][
                                 'weight']
@@ -475,7 +473,10 @@ class Character:
                 plates = itm.get('plates', {})
                 for body_part_name in PLATE_CARRIER_ZONES.keys():
                     if plate := plates.get(body_part_name):
-                        itm['plates'][body_part_name] = items.find_one({'_id': plate.get('_id')})
+                        if not items.find_one({'_id': plate.get('_id')}):
+                            characters.update_one({'_id': self.u_id}, {'$unset': {f'equipped.{n}.plates.{body_part_name}': ''}})
+                        else:
+                            itm['plates'][body_part_name] = items.find_one({'_id': plate.get('_id')})
 
         return char, dict_of_eq_mods
 
