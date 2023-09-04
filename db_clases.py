@@ -841,24 +841,23 @@ class Character:
                             st_sign = '+' if sign == 1 else '-'
                             other_sign = '-' if z < 0 else '+'
                             ret_str += f'{get_item_from_translation_dict(fields_data, localization, action["what_to_buff"])}, {st_sign}({x}d{y}{other_sign}{abs(z)})\n'
-                            for _ in range(x):
-                                addition = random.randint(1, y)
-                                number += addition
-                                ret_str += f'{addition} + '
-                            ret_str = ret_str[:-3]
+                            if x:
+                                for _ in range(x):
+                                    addition = random.randint(1, y)
+                                    number += addition
+                                    ret_str += f'{addition} + '
+                                ret_str = ret_str[:-3]
                             number += z
                             number *= sign
                             ret_str += f' = {number}\n'
                             request['$inc'][f'{action["what_to_buff"]}'] = number
                         case 'buff_or_debuff':
-
                             if action['num'] > 0:
                                 buffs.append({'name': action['what_to_buff'], 'value': action['num']})
                                 sign = '+'
                             else:
                                 debuffs.append({'name': action['what_to_buff'], 'value': abs(action['num'])})
                                 sign = '-'
-
                             ret_str += f'{get_item_from_translation_dict(stats_and_skills_data, localization, action["what_to_buff"])} {sign}{abs(action["num"])}\n'
 
                 if buffs or debuffs:
@@ -1050,7 +1049,7 @@ class Character:
                     #    'modifications': [],'
                     # }
                 ],
-                'money': 0,
+                'money': 2000,
                 'stashes': {  # todo
                     # 'stash_uid',
                     # 'stash2_uid'

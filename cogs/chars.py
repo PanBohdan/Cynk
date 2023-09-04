@@ -196,9 +196,7 @@ class Chars(commands.GroupCog, name="chars"):
     @app_commands.autocomplete(name=chars_autocomplete)
     async def shop(self, i, name: str, item_type: str, per_page: int = 5):
         can_pass, char, user_locale = await checks(i, name, True)
-
         view = ShopView(i, char, item_type, per_page, user_locale, True)
-
         await i.response.send_message(content=view.get_str(),view=view, embeds=view.get_embeds())
 
     #async def cog_app_command_error(self, i: discord.Interaction, error: app_commands.AppCommandError):

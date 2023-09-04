@@ -3,6 +3,10 @@ ITEM_TYPES = ['item',
               'weapon', 'ammo', 'ammo_types',
               'detector', 'artefact',
               'medicine', 'provision', 'profession', 'plate_carrier', 'armor_plate', 'armor']
+ITEM_TYPES_NOT_GM = ['item',
+                     'weapon', 'ammo',
+                     'detector', 'artefact',
+                     'medicine', 'provision', 'plate_carrier', 'armor_plate', 'armor']
 CAN_BE_MODIFIED = ['helmet', 'armor', 'full_armor', 'hazmat_suit', 'exoskeleton', 'weapon']
 ITEM_LOCALIZED_FIELDS = ['name', 'description', 'use_effect_name', 'on_use_text']
 USE_ACTION_TYPES = ['instant', 'continuous']
@@ -47,7 +51,7 @@ CAN_BE_CHANGED_IN_CHAR = [
     'faction',
     'coordinates', 'counter_f', 'counter_w', 'meters'
 ]
-CAN_BE_INT_IN_CHAR = ['meters', 'money', 'radiation', 'hunger', 'chill', 'thirst', 'morale']
+CAN_BE_INT_IN_CHAR = ['meters', 'money', 'radiation', 'food', 'chill', 'water', 'morale']
 CAN_BE_STR_IN_CHAR = ['background_url', 'name', 'img_url']
 SKILLS = {
     'weapons': 0,

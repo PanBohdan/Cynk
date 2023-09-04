@@ -13,11 +13,13 @@ from PIL import Image, ImageDraw
 from discord import SelectOption, Interaction
 from discord.ui import View, Button, Select, Modal, TextInput
 from bson.json_util import dumps
+from typing import Any, Callable, Coroutine, Dict, Generic, Optional, TYPE_CHECKING, Tuple, Type, TypeVar
+from discord._types import ClientT
 
 from db import localized_data, characters, get_item_from_translation_dict, map_collection
 from db_clases import Character, User
 from static import SKILLS, CAN_BE_STR_IN_CHAR, CAN_BE_INT_IN_CHAR, FACTION_EMOJIS, \
-    AVAILABLE_FACTIONS, RESIST_LIST, RESIST_EMOJIS, EMOJIS, FACTIONS, CAN_BE_MODIFIED,  HEALTH_DEBUFFS, \
+    AVAILABLE_FACTIONS, RESIST_LIST, RESIST_EMOJIS, EMOJIS, FACTIONS, CAN_BE_MODIFIED, HEALTH_DEBUFFS, \
     SHOOT_OPTIONS, PLATE_CARRIER_ZONES
 from misc import chunker, get_localized_answer, log, \
     set_stat_or_skill, lvl_up, get_stat, get_char, roll_stat, gm_check, check_for_none, universal_updater, Server, \
@@ -539,7 +541,8 @@ class StatsView(GenericView):
         self.pages = self.character.get_stat_and_skill_lst(localization, self.stats_data)
         self.page = 0
         self.select = StatSelect(self.pages, self.page)
-        self.select_profs_to_remove = ProfSelectRemove(self.character, self.character.get_profession_list(), localization, 3, self.localization_dict)
+        self.select_profs_to_remove = ProfSelectRemove(self.character, self.character.get_profession_list(),
+                                                       localization, 3, self.localization_dict)
         self.lvl_up_btn = LVLupBTN(get_item_from_translation_dict(self.localization_dict, localization, 'lvlup_btn'),
                                    style=discord.ButtonStyle.green)
         self.set_stat_btn = SETstatBTN(
@@ -1412,7 +1415,8 @@ class EquipButton(discord.ui.Button):
         item = self.view.pages[self.view.page][selected]
         self.view.replace_pages()
         self.view.change_page()
-        await interaction.response.edit_message(content=self.view.get_str(), view=self.view, embeds=self.view.get_embeds())
+        await interaction.response.edit_message(content=self.view.get_str(), view=self.view,
+                                                embeds=self.view.get_embeds())
         if result:
             await interaction.followup.send(
                 f'{get_item_from_translation_dict(self.view.translation_data, self.view.localization, "equipped")} '
@@ -1424,8 +1428,8 @@ class EquipButton(discord.ui.Button):
 
 class UseButton(discord.ui.Button):
     def __init__(self, localization):
-        # get_localized_answer('use_btn', localization) todo
-        super().__init__(label='use', style=discord.ButtonStyle.green)
+        #  todo
+        super().__init__(label=get_localized_answer('use_btn', localization), style=discord.ButtonStyle.green)
 
     async def callback(self, interaction: Interaction):
         selected = int(self.view.select.values[0])
@@ -1433,10 +1437,11 @@ class UseButton(discord.ui.Button):
         result, ret_str = self.view.character.use_item_with_uid(selected_item['_id'], self.view.localization)
         self.view.replace_pages()
         self.view.change_page()
-        await interaction.response.edit_message(content=self.view.get_str(), view=self.view, embeds=self.view.get_embeds())
+        await interaction.response.edit_message(content=self.view.get_str(), view=self.view,
+                                                embeds=self.view.get_embeds())
         if result:
             await interaction.followup.send(
-                f'used {get_item_from_translation_dict(selected_item["localization"], self.view.localization, "name")}\n' + ret_str)  # TODO: add localization
+                f'{get_item_from_translation_dict(selected_item["localization"], self.view.localization, "name")}\n' + ret_str)  # TODO: add localization
         else:
             await interaction.followup.send('can\'t')  # TODO: add localization
 
@@ -1451,7 +1456,8 @@ class UnEquipButton(discord.ui.Button):
                                                 self.view.pages[self.view.page][selected]['_id'])
         self.view.replace_pages()
         self.view.change_page()
-        await interaction.response.edit_message(content=self.view.get_str(), view=self.view, embeds=self.view.get_embeds())
+        await interaction.response.edit_message(content=self.view.get_str(), view=self.view,
+                                                embeds=self.view.get_embeds())
 
 
 class DropButton(discord.ui.Button):
@@ -1598,8 +1604,11 @@ class InventoryView(GenericView):
                 equipped_item_str = get_item_from_translation_dict(self.translation_data, self.localization,
                                                                    'inventory')
             return (f'{equipped_item_str} {self.character.char["name"]}  {self.page + 1}/{len(self.pages)} '
-                    f'{get_item_from_translation_dict(self.translation_data, self.localization, str(self.mode))} |'
-                    f' {round(self.weight, 3)} кг.')
+                    f'{get_item_from_translation_dict(self.translation_data, self.localization, str(self.mode))}\n'
+                    f' {round(self.weight, 3)} {get_item_from_translation_dict(self.translation_data, self.localization, "weight")} | '
+                    f'{self.character.char.get("water", 0)} {get_item_from_translation_dict(self.translation_data, self.localization, "water")} | '
+                    f'{self.character.char.get("food", 0)} {get_item_from_translation_dict(self.translation_data, self.localization, "food")} '
+                    f'| {self.character.char.get("money", 0)}$')
         else:
             return 'empty'  # TODO: add localization
 
@@ -1629,37 +1638,42 @@ class ShopView(GenericView):
         self.embed_data = localized_data.find_one({'request': 'item_embed_data'})['local']
         if not character or type(character) == bson.ObjectId:
             character = get_char(i, character)
+        self.character = character
         self.max_on_page = per_page
         self.cycle_btn = CycleInventoryModeBTN(self.translation_data, self.localization)
         self.mode = 1
         self.pages = split_to_ns(list(items.find({'guild_id': i.guild_id, 'type': typ})), self.max_on_page)
-     #   if self.pages:
-     #       self.select = SelectItem(self.pages[self.page], self.localization, self.gm)
-
         if back_data:
             self.back_btn = GenericToViewBTN(MainMenuView, get_localized_answer('back_btn', localization), False,
                                              discord.ButtonStyle.blurple, back_data, 4)
+        self.select = SelectShopItem(self)
+        self.add_itm_btn = AddItemBTN(get_item_from_translation_dict(self.translation_data, self.localization, 'add'))
+        self.buy_itm_btn = BuyItemBTN(get_item_from_translation_dict(self.translation_data, self.localization, 'buy'))
         self.rebuild(False)
 
     def change_page(self):
         if self.page >= len(self.pages):
             self.page -= 1
-#        self.select.replace_options()
+        self.select.replace_options()
         self.rebuild(False)
         return self.get_str()
 
     def rebuild(self, add_buttons=True):
         self.clear_items()
         self.add_item(self.cycle_btn)
-        #if self.pages:
-        #    self.add_item(self.select)
+        if self.pages:
+            self.add_item(self.select)
+        if self.select.values:
+            if self.gm:
+                self.add_item(self.add_itm_btn)
+            self.add_item(self.buy_itm_btn)
         self.regenerate_pages()
         if self.back_data:
             self.add_item(self.back_btn)
 
     def get_str(self):
         if self.pages:
-            return f'{self.page + 1}/{len(self.pages)}'
+            return f'{self.page + 1}/{len(self.pages)} | {self.character.char.get("money", 0)}$'
         else:
             return 'empty'  # TODO: add localization
 
@@ -1671,12 +1685,71 @@ class ShopView(GenericView):
                                self.localization, self.mode))
         return embed_list
 
+class AddItemBTN(Button):
+    def __init__(self, label):
+        super().__init__(label=label, style=discord.ButtonStyle.green)
+    async def callback(self, interaction: Interaction[ClientT]) -> Any:
+        await interaction.response.send_modal(BuyOrAddModal(self.view, False, interaction.message))
+
+class BuyItemBTN(Button):
+    def __init__(self, label):
+        super().__init__(label=label, style=discord.ButtonStyle.green)
+    async def callback(self, interaction: Interaction[ClientT]) -> Any:
+        await interaction.response.send_modal(BuyOrAddModal(self.view, True, interaction.message))
+
+class BuyOrAddModal(Modal):
+    def __init__(self, view: ShopView, buy: bool, message: discord.Message):
+        super().__init__(title=get_item_from_translation_dict(view.translation_data, view.localization, 'buy_or_add_modal_title'))
+        self.view = view
+        self.buy = buy
+        self.message = message
+        self.quantity = TextInput(label=get_item_from_translation_dict(view.translation_data, view.localization, 'input_num_default'), default='1')
+        self.add_item(self.quantity)
+
+    async def on_submit(self, interaction: Interaction[ClientT], /) -> None:
+        quantity = int(str(self.quantity))
+        u_id = bson.ObjectId(self.view.select.values[0].split('|')[1])
+        item = items.find_one({'_id': u_id})
+        if self.buy:
+            if self.view.character.char.get('money', 0) - item["price"]*quantity >= 0:
+                self.view.character.add_item(u_id, quantity)
+                self.view.character.update('money', self.view.character.char.get('money', 0) - item["price"]*quantity)
+                await interaction.response.send_message(
+                    content=f"{get_item_from_translation_dict(self.view.translation_data, self.view.localization, 'bought')} {quantity} {get_item_from_translation_dict(item['localization'], self.view.localization, 'name')} | {item['price']*quantity}$")
+
+            else:
+                await interaction.response.send_message(content=get_item_from_translation_dict(self.view.translation_data, self.view.localization, 'not_enought_money'))
+        else:
+            self.view.character.add_item(u_id, quantity)
+            await interaction.response.send_message(content=f"{get_item_from_translation_dict(self.view.translation_data, self.view.localization, 'added')} {quantity} {get_item_from_translation_dict(item['localization'], self.view.localization, 'name')}")
+        self.view.rebuild()
+        await self.message.edit(view=self.view, content=self.view.get_str())
+
+class SelectShopItem(Select):
+    def __init__(self, view: ShopView):
+        super().__init__(options=SelectShopItem.get_options(view))
+
+    async def callback(self, interaction: Interaction[ClientT]) -> Any:
+        self.placeholder = get_item_from_translation_dict(self.view.pages[self.view.page][int(self.values[0].split('|')[0])].get('localization', {}), self.view.localization, 'name')
+        self.view.rebuild()
+        await interaction.response.edit_message(view=self.view)
+
+    def replace_options(self):
+        self.options = self.get_options(self.view)
+
+    @staticmethod
+    def get_options(view: ShopView):
+        return [
+            SelectOption(label=get_item_from_translation_dict(item.get('localization', {}), view.localization, 'name'),
+                         value=f'{n}|{item["_id"]}') for n, item in enumerate(view.pages[view.page])]
+
+
 class DropModal(Modal):
     def __init__(self, view: InventoryView):
         self.view = view
         self.quantity = TextInput(
             label=get_item_from_translation_dict(view.translation_data, view.localization, 'input_num'),
-            placeholder='1')
+            default='1')
         super().__init__(
             title=get_item_from_translation_dict(view.translation_data, view.localization, 'drop_modal_title'))
         self.add_item(self.quantity)
@@ -1700,6 +1773,9 @@ def get_item_embed(item, body_part_translation_data, translation_data, embed_dat
     inline = False
     if mode == 0:
         inline = True
+    embed.add_field(name=get_item_from_translation_dict(embed_data, localization, "price"),
+                    value=f'{item.get("price", 0)}$',
+                    inline=inline)
     if mode >= 1:
         match item['type']:
             case 'weapon':
@@ -1717,11 +1793,11 @@ def get_item_embed(item, body_part_translation_data, translation_data, embed_dat
                         misc_text += f' {get_item_from_translation_dict(body_part_translation_data, localization, body_part)} - {get_item_from_translation_dict(plate["localization"], localization, "name")}\n'
             case 'armor':
                 misc_text += get_item_from_translation_dict(translation_data, localization, 'protects') + '\n'
-                for body_part in list(PLATE_CARRIER_ZONES.keys())+['head']:
+                for body_part in list(PLATE_CARRIER_ZONES.keys()) + ['head']:
                     if plate := item.get(body_part, 0):
                         misc_text += f' {get_item_from_translation_dict(body_part_translation_data, localization, body_part)} - {plate}'
             case 'medicine':
-                misc_text += f" ({item.get('max_healing_potential', 0)- item.get('healing', 0)}/{item.get('max_healing_potential', 0)}) "
+                misc_text += f" ({item.get('max_healing_potential', 0) - item.get('healing', 0)}/{item.get('max_healing_potential', 0)}) "
         if misc_text:
             embed.add_field(name=get_item_from_translation_dict(embed_data, localization, "other"), value=misc_text,
                             inline=inline)
@@ -2395,7 +2471,8 @@ class ProfessionsView(GenericView):
 class ProfSelectRemove(Select):
     def __init__(self, character: Character, prof_list, localization, row, localization_dict):
         self.character = character
-        super().__init__(options=ProfSelectAdd.get_options(prof_list, localization), row=row, placeholder=get_item_from_translation_dict(localization_dict, localization, 'remove_prof'))
+        super().__init__(options=ProfSelectAdd.get_options(prof_list, localization), row=row,
+                         placeholder=get_item_from_translation_dict(localization_dict, localization, 'remove_prof'))
 
     async def callback(self, interaction: Interaction):
         self.view.character.rem_prof(bson.ObjectId(self.values[0]))
@@ -2510,7 +2587,8 @@ class HealSelect(Select):
     def get_options(localization, character, body_part):
         opts = [SelectOption(
             label=f"{item['quantity']}шт. {get_item_from_translation_dict(item['localization'], localization, 'name')} ({item['max_healing_potential'] - item.get('healing', 0)}/{item['max_healing_potential']})",
-            value=f"{item['_id']}|{idx}") for item, idx in get_available_medicine(character, body_part) if item.get('max_healing_potential')][:25]
+            value=f"{item['_id']}|{idx}") for item, idx in get_available_medicine(character, body_part) if
+                   item.get('max_healing_potential')][:25]
         if not opts:
             opts.append(SelectOption(label='...', value='none'))
         return opts

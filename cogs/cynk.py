@@ -18,8 +18,8 @@ from misc import set_locale_autocomplete, chunker, process_event, get_localized_
     player_chars_autocomplete, stats_autocomplete, stat_and_skill_autocomplete, localized_data, roll_stat, lvl_up, \
     get_item_from_translation_dict, say, set_image
 from placeholders import move_url_placeholder
-from views import ManualView, chars, get_stats, get_info, get_stat_view, checks, get_inventory_view, pda, health
-
+from views import ManualView, chars, get_stats, get_info, get_stat_view, checks, get_inventory_view, pda, health, ShopView
+from static import ITEM_TYPES_NOT_GM
 
 class Cynk(commands.GroupCog, name="cynk"):
     def __init__(self, client):
@@ -70,6 +70,14 @@ class Cynk(commands.GroupCog, name="cynk"):
         user_localization = User(i.user.id, i.guild.id).get_localization()
         await i.response.send_message(get_localized_answer('char_error', user_localization), ephemeral=True)
         print(error)
+
+    @app_commands.command(description='shop')
+    @app_commands.choices(item_type=[Choice(name=typ, value=typ) for typ in ITEM_TYPES_NOT_GM], per_page=[Choice(name=str(typ), value=typ) for typ in [3, 5, 10 ]])
+    @app_commands.autocomplete(name=player_chars_autocomplete)
+    async def shop(self, i, item_type: str, name: str = None, per_page: int = 5):
+        can_pass, char, user_locale = await checks(i, name, False)
+        view = ShopView(i, char, item_type, per_page, user_locale, False)
+        await i.response.send_message(content=view.get_str(),view=view, embeds=view.get_embeds())
 
 async def setup(client):
     await client.add_cog(Cynk(client))
