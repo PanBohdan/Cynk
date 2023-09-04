@@ -3,6 +3,7 @@ from typing import List, Optional
 
 import bson
 import discord.app_commands
+import pymongo
 from discord.components import SelectOption
 from discord.utils import MISSING
 import gspread
@@ -1642,7 +1643,13 @@ class ShopView(GenericView):
         self.max_on_page = per_page
         self.cycle_btn = CycleInventoryModeBTN(self.translation_data, self.localization)
         self.mode = 1
-        self.pages = split_to_ns(list(items.find({'guild_id': i.guild_id, 'type': typ})), self.max_on_page)
+        cursor = items.find({'guild_id': i.guild_id, 'type': typ})
+        if typ == 'weapon':
+            cursor.sort([('stat', pymongo.ASCENDING), ('price', pymongo.ASCENDING)])
+        else:
+            cursor.sort([('price', pymongo.ASCENDING)])
+
+        self.pages = split_to_ns(list(cursor), self.max_on_page)
         if back_data:
             self.back_btn = GenericToViewBTN(MainMenuView, get_localized_answer('back_btn', localization), False,
                                              discord.ButtonStyle.blurple, back_data, 4)
