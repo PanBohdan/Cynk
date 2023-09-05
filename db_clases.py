@@ -1232,7 +1232,7 @@ class Item:
             })
 
     def create_plate_carrier(self, name, description, weight, price, modification_slots,
-                             torso_protection, thorax_protection, arms_protection, legs_protection):
+                             stomach_protection, thorax_protection, arms_protection, legs_protection):
         return items.insert_one(
             {
                 'guild_id': self.guild_id,
@@ -1250,7 +1250,7 @@ class Item:
                 'can_be_used': False,
                 'can_be_equipped': True,
                 'modification_slots': modification_slots,
-                'stomach_protection': torso_protection,  # None, plate, kevlar
+                'stomach_protection': stomach_protection,  # None, plate, kevlar
                 'thorax_protection': thorax_protection,
                 'arms_protection': arms_protection,
                 'legs_protection': legs_protection

@@ -38,7 +38,7 @@ class Items(commands.GroupCog, name="items"):
                                    weight: float, modification_slots: int, stomach_protection: str,
                                    thorax_protection: str, arms_protection: str, legs_protection: str):
         if stomach_protection == 'none':
-            torso_protection = None
+            stomach_protection = None
         if thorax_protection == 'none':
             thorax_protection = None
         if arms_protection == 'none':
@@ -46,7 +46,7 @@ class Items(commands.GroupCog, name="items"):
         if legs_protection == 'none':
             legs_protection = None
         item = Item(i.guild_id)
-        item.create_plate_carrier(name, description, weight, price, modification_slots, torso_protection,
+        item.create_plate_carrier(name, description, weight, price, modification_slots, stomach_protection,
                                   thorax_protection, arms_protection, legs_protection)
         await i.response.send_message(content='todo  OK')  # todo  OK
 
