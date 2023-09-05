@@ -1049,7 +1049,7 @@ class Character:
                     #    'modifications': [],'
                     # }
                 ],
-                'money': 2000,
+                'money': 4000,
                 'stashes': {  # todo
                     # 'stash_uid',
                     # 'stash2_uid'
