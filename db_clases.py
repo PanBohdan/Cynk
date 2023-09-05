@@ -916,7 +916,7 @@ class Character:
                 new_lvl=new_value,
                 limit=limit
             )
-        sum_used = 0
+        sum_used = num
         points_str = ''
         if stat['multiplier'] != 1:
             points_str = f'({num})*{stat["multiplier"]}={sum_used}'
