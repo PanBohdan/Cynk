@@ -201,7 +201,7 @@ class Items(commands.GroupCog, name="items"):
     async def set_stat(self, i: Interaction, name: str, stat: str):
         item = Item(i.guild_id, bson.ObjectId(name))
         user = User(i.user.id, i.guild_id)
-        item.update('stat', stat)
+        item.update('stat', get_stat(stat, user.get_localization()))
         await i.response.send_message(content='todo  OK')
 
     @app_commands.command(description='set_damage_or_pen_description')
