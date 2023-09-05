@@ -1556,7 +1556,7 @@ class InventoryView(GenericView):
                     self.add_item(self.unequip_btn)
                     if self.select.values:
                         item = self.pages[self.page][int(self.select.values[0])]
-                        idx = int(self.select.values[0])
+                        idx = int(self.select.values[0]) + self.page * self.max_on_page
                         # if item['type'] in CAN_BE_MODIFIED:
                         #     self.modify_btn.n_args = (
                         #         self.i, self.character, item, idx, self.inventory['inventory'],
@@ -2428,12 +2428,13 @@ class PlateCarrierView(GenericView):
     def get_str(self):
         equipped, _ = self.character.read_equipped()
         equipped = equipped['equipped']
-        item = equipped[self.idx]
-        plates = item.get('plates', {})
-        ret_str = f'{get_item_from_translation_dict(item["localization"], self.localization, "name")}\n'
-        for body_part in PLATE_CARRIER_ZONES.keys():
-            ret_str += f'{get_item_from_translation_dict(self.body_part_data, self.localization, body_part)}: {plates.get(body_part, {}).get("plate_class", 0)}\n'
-        return ret_str
+        if equipped[self.idx]['_id'] == self.item['_id']:
+            item = equipped[self.idx]
+            plates = item.get('plates', {})
+            ret_str = f'{get_item_from_translation_dict(item["localization"], self.localization, "name")}\n'
+            for body_part in PLATE_CARRIER_ZONES.keys():
+                ret_str += f'{get_item_from_translation_dict(self.body_part_data, self.localization, body_part)}: {plates.get(body_part, {}).get("plate_class", 0)}\n'
+            return ret_str
 
     def replace_select_placeholder(self, placeholder):
         self.select.replace_placeholder(placeholder)
