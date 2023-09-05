@@ -20,7 +20,7 @@ CAN_BE_CHANGED_IN_ITEM = [
     'weight', 'price',
     'actions_when_used', 'actions_when_equipped',
     'can_be_used', 'can_be_equipped',
-    'modification_slots', 'image_url'
+    'modification_slots', 'image_url', 'stat', 'damage', 'armor_penetration'
 ]
 PLATE_CARRIER_ZONES = {
     'thorax': 'thorax_protection',

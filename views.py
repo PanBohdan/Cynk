@@ -1491,6 +1491,7 @@ class InventoryView(GenericView):
         self.translation_data = localized_data.find_one({'request': 'inventory_view_data'})['local']
         self.body_part_translation_data = localized_data.find_one({'request': 'body_parts'})['local']
         self.embed_data = localized_data.find_one({'request': 'item_embed_data'})['local']
+        self.stats_data = localized_data.find_one({'request': 'stats_and_skills'})['local']
         if not character or type(character) == bson.ObjectId:
             character = get_char(i, character)
         self.character = character
@@ -1622,7 +1623,7 @@ class InventoryView(GenericView):
 
             for item in our_items:
                 embed_list.append(
-                    get_item_embed(item, self.body_part_translation_data, self.translation_data, self.embed_data,
+                    get_item_embed(item, self.body_part_translation_data, self.translation_data, self.embed_data, self.stats_data,
                                    self.localization, self.mode))
         return embed_list
 
@@ -1635,6 +1636,7 @@ class ShopView(GenericView):
         self.i = i
         self.back_data = back_data
         self.translation_data = localized_data.find_one({'request': 'inventory_view_data'})['local']
+        self.stats_data = localized_data.find_one({'request': 'stats_and_skills'})['local']
         self.body_part_translation_data = localized_data.find_one({'request': 'body_parts'})['local']
         self.embed_data = localized_data.find_one({'request': 'item_embed_data'})['local']
         if not character or type(character) == bson.ObjectId:
@@ -1644,10 +1646,13 @@ class ShopView(GenericView):
         self.cycle_btn = CycleInventoryModeBTN(self.translation_data, self.localization)
         self.mode = 1
         cursor = items.find({'guild_id': i.guild_id, 'type': typ})
-        if typ == 'weapon':
-            cursor.sort([('stat', pymongo.ASCENDING), ('price', pymongo.ASCENDING)])
-        else:
-            cursor.sort([('price', pymongo.ASCENDING)])
+        match typ:
+            case 'weapon':
+                cursor.sort([('stat', pymongo.ASCENDING), ('price', pymongo.ASCENDING)])
+            case 'ammo':
+                cursor.sort([('ammo_type', pymongo.ASCENDING), ('price', pymongo.ASCENDING)])
+            case _:
+                cursor.sort([('price', pymongo.ASCENDING)])
 
         self.pages = split_to_ns(list(cursor), self.max_on_page)
         if back_data:
@@ -1688,7 +1693,7 @@ class ShopView(GenericView):
         embed_list = []
         for item in self.pages[self.page]:
             embed_list.append(
-                get_item_embed(item, self.body_part_translation_data, self.translation_data, self.embed_data,
+                get_item_embed(item, self.body_part_translation_data, self.translation_data, self.embed_data, self.stats_data,
                                self.localization, self.mode))
         return embed_list
 
@@ -1772,14 +1777,12 @@ class DropModal(Modal):
                                                 embeds=self.view.get_embeds())
 
 
-def get_item_embed(item, body_part_translation_data, translation_data, embed_data, localization, mode: int):
+def get_item_embed(item, body_part_translation_data, translation_data, embed_data, stats_data, localization, mode: int):
     embed = discord.Embed(title=get_item_from_translation_dict(item["localization"], localization, "name").strip())
     single_weight = ''
     misc_text = ''
     image_set = False
-    inline = False
-    if mode == 0:
-        inline = True
+    inline = True
     embed.add_field(name=get_item_from_translation_dict(embed_data, localization, "price"),
                     value=f'{item.get("price", 0)}$',
                     inline=inline)
@@ -1791,7 +1794,6 @@ def get_item_embed(item, body_part_translation_data, translation_data, embed_dat
                     image_set = True
                 ammo = items.find_one({'_id': item.get('ammo_type')})
                 misc_text += f' {get_item_from_translation_dict(ammo["localization"], localization, "name")}\n'
-
             case 'plate_carrier':
                 misc_text += get_item_from_translation_dict(translation_data, localization, 'protects') + '\n'
                 plates = item.get('plates', {})
@@ -1805,11 +1807,22 @@ def get_item_embed(item, body_part_translation_data, translation_data, embed_dat
                         misc_text += f' {get_item_from_translation_dict(body_part_translation_data, localization, body_part)} - {plate}'
             case 'medicine':
                 misc_text += f" ({item.get('max_healing_potential', 0) - item.get('healing', 0)}/{item.get('max_healing_potential', 0)}) "
+            case 'ammo':
+                x, y, z = item.get('damage', (0, 0, 0))
+                px, py, pz = item.get('armor_penetration', (0, 0, 0))
+                damage_str = f'{x}d{y}+{z}'
+                pen_str = f'{px}/{py}/{pz}'
+                misc_text += get_item_from_translation_dict(embed_data, localization, 'damage_and_pen').format(damage=damage_str, pen=pen_str)
         if misc_text:
             embed.add_field(name=get_item_from_translation_dict(embed_data, localization, "other"), value=misc_text,
                             inline=inline)
 
     if mode >= 2:
+        match item['type']:
+            case 'weapon':
+                embed.add_field(name=get_item_from_translation_dict(embed_data, localization, 'stat'),
+                                value=get_item_from_translation_dict(stats_data, localization, item.get('stat')))
+
         embed.add_field(name=get_item_from_translation_dict(embed_data, localization, 'description'),
                         value=get_item_from_translation_dict(item['localization'], localization, 'description'))
 
@@ -1825,8 +1838,6 @@ def get_item_embed(item, body_part_translation_data, translation_data, embed_dat
     weight_str = f'{round(item["weight"] * item.get("quantity", 1), 3)}{single_weight} {get_item_from_translation_dict(embed_data, localization, "weight_sub_str")}'
     embed.add_field(name=get_item_from_translation_dict(embed_data, localization, 'weight'), value=weight_str,
                     inline=inline)
-    if not image_set and not inline:
-        embed.set_image(url='https://cdn.discordapp.com/attachments/937328189859057674/944647455109156884/1.png')
     return embed
 
 

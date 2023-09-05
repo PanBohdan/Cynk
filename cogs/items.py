@@ -184,8 +184,8 @@ class Items(commands.GroupCog, name="items"):
         translation_data = localized_data.find_one({'request': 'inventory_view_data'})['local']
         body_part_translation_data = localized_data.find_one({'request': 'body_parts'})['local']
         embed_data = localized_data.find_one({'request': 'item_embed_data'})['local']
-
-        await i.response.send_message(embeds=[get_item_embed(item.item, body_part_translation_data, translation_data, embed_data, user.get_localization(), 2)])
+        stats_data = localized_data.find_one({'request': 'stats_and_skills'})['local']
+        await i.response.send_message(embeds=[get_item_embed(item.item, body_part_translation_data, translation_data, embed_data, stats_data, user.get_localization(), 2)])
 
     @app_commands.command(description='add_buff_action_to_item')
     @app_commands.autocomplete(name=items_buff_autocomplete, what_to_buff=stat_and_skill_autocomplete)
@@ -194,6 +194,23 @@ class Items(commands.GroupCog, name="items"):
         item = Item(i.guild_id, bson.ObjectId(name))
         user = User(i.user.id, i.guild_id)
         item.add_buff_action(when, get_stat(what_to_buff, user.get_localization()), value)
+        await i.response.send_message(content='todo  OK')
+
+    @app_commands.command(description='set_stat')
+    @app_commands.autocomplete(name=items_buff_autocomplete, stat=stat_and_skill_autocomplete)
+    async def set_stat(self, i: Interaction, name: str, stat: str):
+        item = Item(i.guild_id, bson.ObjectId(name))
+        user = User(i.user.id, i.guild_id)
+        item.update('stat', stat)
+        await i.response.send_message(content='todo  OK')
+
+    @app_commands.command(description='set_damage_or_pen_description')
+    @app_commands.autocomplete(name=items_buff_autocomplete)
+    @app_commands.choices(what_to_set=[Choice(name='damage', value='damage'), Choice(name='armor_penetration', value='armor_penetration')])
+    async def set_damage_or_pen_description(self, i: Interaction, name: str, what_to_set: str, x: int, y: int, z: int):
+        item = Item(i.guild_id, bson.ObjectId(name))
+        user = User(i.user.id, i.guild_id)
+        item.update(what_to_set, (x, y, z))
         await i.response.send_message(content='todo  OK')
 
     @app_commands.command(description='add_one_time_buff_action_to_item')
