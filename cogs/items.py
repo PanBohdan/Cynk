@@ -35,8 +35,8 @@ class Items(commands.GroupCog, name="items"):
                           arms_protection=[Choice(name=typ, value=typ) for typ in PLATE_TYPES + ['none']],
                           legs_protection=[Choice(name=typ, value=typ) for typ in PLATE_TYPES + ['none']])
     async def create_plate_carrier(self, i: Interaction, name: str, description: str, price: int,
-                                   weight: float, modification_slots: int, stomach_protection: str,
-                                   thorax_protection: str, arms_protection: str, legs_protection: str):
+                                   weight: float, modification_slots: int,
+                                   thorax_protection: str, stomach_protection: str, arms_protection: str, legs_protection: str):
         if stomach_protection == 'none':
             stomach_protection = None
         if thorax_protection == 'none':
