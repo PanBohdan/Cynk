@@ -485,7 +485,7 @@ class FactionSelectView(GenericView):
     def get_str(self):
         ret_str = f'{self.extras.get("name", "nonameerror")}\n```'
         for item in self.list:
-            ret_str += f'{item[1]}: {self.extras["skills"].get(item[0], 2)}\n'
+            ret_str += f'{item[1]}: {self.extras["skills"].get(item[0], 0)}\n'
         ret_str += '```'
         return ret_str
 
