@@ -1457,6 +1457,7 @@ class UnEquipButton(discord.ui.Button):
                                                 self.view.pages[self.view.page][selected]['_id'])
         self.view.replace_pages()
         self.view.change_page()
+
         await interaction.response.edit_message(content=self.view.get_str(), view=self.view,
                                                 embeds=self.view.get_embeds())
 

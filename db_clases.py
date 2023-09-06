@@ -880,6 +880,7 @@ class Character:
             item['quantity'] = 1
             self.char['equipped'].append(item)
             characters.update_one({'_id': self.char['_id']}, {'$push': {'equipped': item}})
+            characters.update_one({'_id': self.char['_id']}, {'$inc': {f'inventory.{idx}.quantity': -1}})
             if self.char['inventory'][idx]['quantity'] <= 0:
                 self.char['inventory'].pop(idx)
                 characters.update_one({'_id': self.char['_id']}, {'$unset': {f'inventory.{idx}': ''}})
