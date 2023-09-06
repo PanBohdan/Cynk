@@ -31,6 +31,13 @@ PLATE_CARRIER_ZONES = {
     'left_leg': 'legs_protection',
 
 }
+ZONES = [
+    'thorax_protection',
+    'arms_protection',
+    'stomach_protection',
+    'legs_protection',
+
+]
 PLATE_TYPES = [
     'plate', 'kevlar'
 ]

@@ -21,7 +21,7 @@ from db import localized_data, characters, get_item_from_translation_dict, map_c
 from db_clases import Character, User
 from static import SKILLS, CAN_BE_STR_IN_CHAR, CAN_BE_INT_IN_CHAR, FACTION_EMOJIS, \
     AVAILABLE_FACTIONS, RESIST_LIST, RESIST_EMOJIS, EMOJIS, FACTIONS, CAN_BE_MODIFIED, HEALTH_DEBUFFS, \
-    SHOOT_OPTIONS, PLATE_CARRIER_ZONES
+    SHOOT_OPTIONS, PLATE_CARRIER_ZONES, ZONES
 from misc import chunker, get_localized_answer, log, \
     set_stat_or_skill, lvl_up, get_stat, get_char, roll_stat, gm_check, check_for_none, universal_updater, Server, \
     get_loc_image, get_hp_image
@@ -1796,11 +1796,17 @@ def get_item_embed(item, body_part_translation_data, translation_data, embed_dat
                 ammo = items.find_one({'_id': item.get('ammo_type')})
                 misc_text += f' {get_item_from_translation_dict(ammo["localization"], localization, "name")}\n'
             case 'plate_carrier':
-                misc_text += get_item_from_translation_dict(translation_data, localization, 'protects') + '\n'
                 plates = item.get('plates', {})
+                if plates:
+                    misc_text += get_item_from_translation_dict(translation_data, localization, 'protects') + '\n'
                 for body_part in PLATE_CARRIER_ZONES.keys():
                     if plate := plates.get(body_part):
                         misc_text += f' {get_item_from_translation_dict(body_part_translation_data, localization, body_part)} - {get_item_from_translation_dict(plate["localization"], localization, "name")}\n'
+                misc_text += get_item_from_translation_dict(translation_data, localization, 'protects_zones') + '\n'
+                for zone in ZONES:
+                    if protection := item.get(zone):
+                        misc_text += f'{get_item_from_translation_dict(translation_data, localization, zone)} - {get_item_from_translation_dict(translation_data, localization, protection)}\n'
+
             case 'armor':
                 misc_text += get_item_from_translation_dict(translation_data, localization, 'protects') + '\n'
                 for body_part in list(PLATE_CARRIER_ZONES.keys()) + ['head']:
