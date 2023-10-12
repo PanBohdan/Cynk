@@ -1969,7 +1969,7 @@ class ConfirmDeletionView(GenericView):
     def __init__(self, i: discord.Interaction, user, char, server, edited_view):
         super().__init__(i)
         self.i = i
-        self.char = char
+        self.user = user
         self.char = char
         self.server = server
         self.edited_view = edited_view
