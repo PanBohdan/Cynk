@@ -2804,7 +2804,8 @@ class ShootModal(Modal):
         )
         self.add_item(self.num)
 
-    async def on_submit(self, interaction: Interaction) -> None:
+    async def on_submit(self, i: Interaction) -> None:
+        await i.response.defer()
         str_roll = ''
         missed_shots = 0
         buff_and_debuff_number = 0
@@ -2848,13 +2849,8 @@ class ShootModal(Modal):
         chunks = chunker(str_roll)
         self.character.remove_item_by_id(self.ammo['_id'], self.used_ammo)
 
-        sent = False
         for chunk in chunks:
-            if not sent:
-                await interaction.response.send_message(content=chunk)
-                sent = True
-            else:
-                await interaction.followup.send(content=chunk)
+            await i.followup.send(content=chunk)
         self.view.reset()
         await self.message.edit(content=self.view.get_str(), view=self.view)
 
