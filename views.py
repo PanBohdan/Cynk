@@ -24,7 +24,7 @@ from static import SKILLS, CAN_BE_STR_IN_CHAR, CAN_BE_INT_IN_CHAR, FACTION_EMOJI
     SHOOT_OPTIONS, PLATE_CARRIER_ZONES, ZONES
 from misc import chunker, get_localized_answer, log, \
     set_stat_or_skill, lvl_up, get_stat, get_char, roll_stat, gm_check, check_for_none, universal_updater, Server, \
-    get_loc_image, get_hp_image
+    get_loc_image, get_hp_image, is_within_radius
 from placeholders import char_image_placeholder
 from db import items
 from copy import deepcopy
@@ -889,6 +889,48 @@ class CharsView(GenericView):
             self.regenerate_pages()
 
 
+class TradersView(GenericView):
+    def __init__(self, i, name, localization, gm=False, back_data=None):
+        super().__init__(i)
+        self.character = get_char(i, name)
+        self.gm = gm
+        self.localization = localization
+        self.back_data = back_data
+        self.page = 0
+        self.per_page = 25
+        self.interaction = i
+        self.character_filter = {'location': self.character.char.get('location'), 'type': 'trader'}
+        self.characters = [x for x in
+                           characters.find(self.character_filter,
+                                           {'name': 1, '_id': 1, 'faction': 1, 'owner_id': 1, 'coordinates': 1})
+                           if is_within_radius(x['coordinates'][0],
+                                               x['coordinates'][1],
+                                               self.character.char['coordinates'][0],
+                                               self.character.char['coordinates'][1])]
+        self.pages = split_to_ns(self.characters, self.per_page)
+        if not self.pages:
+            return
+        self.select = TradeCharSelect(i, self.pages, self.page)
+        self.rebuild()
+
+    def change_page(self):
+        self.rebuild()
+        self.select.replace_options(self.interaction)
+        return self.get_str()
+
+    def get_str(self):
+        if self.pages:
+            return f'{self.page + 1}/{len(self.pages)}'
+        else:
+            return 'Поруч немає нікого...'
+
+    def rebuild(self):
+        self.clear_items()
+        if self.pages:
+            self.add_item(self.select)
+            self.regenerate_pages()
+
+
 class FieldSelect(Select):
     def __init__(self, translation_dict, localization):
         self.translation_dict = translation_dict
@@ -1624,7 +1666,8 @@ class InventoryView(GenericView):
 
             for item in our_items:
                 embed_list.append(
-                    get_item_embed(item, self.body_part_translation_data, self.translation_data, self.embed_data, self.stats_data,
+                    get_item_embed(item, self.body_part_translation_data, self.translation_data, self.embed_data,
+                                   self.stats_data,
                                    self.localization, self.mode))
         return embed_list
 
@@ -1694,29 +1737,38 @@ class ShopView(GenericView):
         embed_list = []
         for item in self.pages[self.page]:
             embed_list.append(
-                get_item_embed(item, self.body_part_translation_data, self.translation_data, self.embed_data, self.stats_data,
+                get_item_embed(item, self.body_part_translation_data, self.translation_data, self.embed_data,
+                               self.stats_data,
                                self.localization, self.mode))
         return embed_list
+
 
 class AddItemBTN(Button):
     def __init__(self, label):
         super().__init__(label=label, style=discord.ButtonStyle.green)
+
     async def callback(self, interaction: Interaction[ClientT]) -> Any:
         await interaction.response.send_modal(BuyOrAddModal(self.view, False, interaction.message))
+
 
 class BuyItemBTN(Button):
     def __init__(self, label):
         super().__init__(label=label, style=discord.ButtonStyle.green)
+
     async def callback(self, interaction: Interaction[ClientT]) -> Any:
         await interaction.response.send_modal(BuyOrAddModal(self.view, True, interaction.message))
 
+
 class BuyOrAddModal(Modal):
     def __init__(self, view: ShopView, buy: bool, message: discord.Message):
-        super().__init__(title=get_item_from_translation_dict(view.translation_data, view.localization, 'buy_or_add_modal_title'))
+        super().__init__(
+            title=get_item_from_translation_dict(view.translation_data, view.localization, 'buy_or_add_modal_title'))
         self.view = view
         self.buy = buy
         self.message = message
-        self.quantity = TextInput(label=get_item_from_translation_dict(view.translation_data, view.localization, 'input_num_default'), default='1')
+        self.quantity = TextInput(
+            label=get_item_from_translation_dict(view.translation_data, view.localization, 'input_num_default'),
+            default='1')
         self.add_item(self.quantity)
 
     async def on_submit(self, interaction: Interaction[ClientT], /) -> None:
@@ -1724,26 +1776,32 @@ class BuyOrAddModal(Modal):
         u_id = bson.ObjectId(self.view.select.values[0].split('|')[1])
         item = items.find_one({'_id': u_id})
         if self.buy:
-            if self.view.character.char.get('money', 0) - item["price"]*quantity >= 0:
+            if self.view.character.char.get('money', 0) - item["price"] * quantity >= 0:
                 self.view.character.add_item(u_id, quantity)
-                self.view.character.update('money', self.view.character.char.get('money', 0) - item["price"]*quantity)
+                self.view.character.update('money', self.view.character.char.get('money', 0) - item["price"] * quantity)
                 await interaction.response.send_message(
-                    content=f"{get_item_from_translation_dict(self.view.translation_data, self.view.localization, 'bought')} {quantity} {get_item_from_translation_dict(item['localization'], self.view.localization, 'name')} | {item['price']*quantity}$")
+                    content=f"{get_item_from_translation_dict(self.view.translation_data, self.view.localization, 'bought')} {quantity} {get_item_from_translation_dict(item['localization'], self.view.localization, 'name')} | {item['price'] * quantity}$")
 
             else:
-                await interaction.response.send_message(content=get_item_from_translation_dict(self.view.translation_data, self.view.localization, 'not_enought_money'))
+                await interaction.response.send_message(
+                    content=get_item_from_translation_dict(self.view.translation_data, self.view.localization,
+                                                           'not_enought_money'))
         else:
             self.view.character.add_item(u_id, quantity)
-            await interaction.response.send_message(content=f"{get_item_from_translation_dict(self.view.translation_data, self.view.localization, 'added')} {quantity} {get_item_from_translation_dict(item['localization'], self.view.localization, 'name')}")
+            await interaction.response.send_message(
+                content=f"{get_item_from_translation_dict(self.view.translation_data, self.view.localization, 'added')} {quantity} {get_item_from_translation_dict(item['localization'], self.view.localization, 'name')}")
         self.view.rebuild()
         await self.message.edit(view=self.view, content=self.view.get_str())
+
 
 class SelectShopItem(Select):
     def __init__(self, view: ShopView):
         super().__init__(options=SelectShopItem.get_options(view))
 
     async def callback(self, interaction: Interaction[ClientT]) -> Any:
-        self.placeholder = get_item_from_translation_dict(self.view.pages[self.view.page][int(self.values[0].split('|')[0])].get('localization', {}), self.view.localization, 'name')
+        self.placeholder = get_item_from_translation_dict(
+            self.view.pages[self.view.page][int(self.values[0].split('|')[0])].get('localization', {}),
+            self.view.localization, 'name')
         self.view.rebuild()
         await interaction.response.edit_message(view=self.view)
 
@@ -1819,7 +1877,8 @@ def get_item_embed(item, body_part_translation_data, translation_data, embed_dat
                 px, py, pz = item.get('armor_penetration', (0, 0, 0))
                 damage_str = f'{x}d{y}+{z}'
                 pen_str = f'{px}/{py}/{pz}'
-                misc_text += get_item_from_translation_dict(embed_data, localization, 'damage_and_pen').format(damage=damage_str, pen=pen_str)
+                misc_text += get_item_from_translation_dict(embed_data, localization, 'damage_and_pen').format(
+                    damage=damage_str, pen=pen_str)
         if misc_text:
             embed.add_field(name=get_item_from_translation_dict(embed_data, localization, "other"), value=misc_text,
                             inline=inline)
@@ -2054,17 +2113,22 @@ class PDAMoveBTN(Button):
                                     return
                             case 1:
                                 mx, my = view.x, view.y
+
                         path = pyastar2d.astar_path(arr, (y, x), (my, mx))
                         draw.rectangle(((path[0][1] + 5, path[0][0] + 5), (path[0][1] - 5, path[0][0] - 5)),
                                        fill='red')
                         price = 0
                         for n, point in enumerate(path):
+                            if numpy.logical_not(point.all()):
+                                continue
                             price += arr[point[0]][point[1]]
                             if not n + 1 >= len(path):
                                 draw.line((point[1], point[0], path[n + 1][1], path[n + 1][0]), fill='red', width=3)
                         price = round(price)
                         max_x, max_y, min_x, min_y = 0, 0, mapp.size[1] + 1, mapp.size[1] + 1
                         for coord in path:
+                            if numpy.logical_not(coord.all()):
+                                continue
                             if max_x < coord[1]:
                                 max_x = coord[1]
                             if min_x > coord[1]:
@@ -2895,6 +2959,332 @@ def read_map_value(m_id: bson.ObjectId, value: str):
     return map_collection.find_one({'_id': m_id})[value]
 
 
-class ItemDescriptionView(GenericView):
-    def __init__(self):
-        super().__init__()
+async def trade(i, name):
+    can_pass, char, user_locale = await checks(i, name, False)
+    view = TradersView(i, name, False)
+    await i.response.send_message(content=view.get_str(), view=view, embeds=view.get_embeds())
+
+
+class SecureTradeBTN(Button):
+    def __init__(self, label):
+        super().__init__(label=label, style=discord.ButtonStyle.green)
+
+    async def callback(self, interaction: Interaction[ClientT]) -> Any:
+        view: TradeManager = self.view
+        view.secure_trade()
+        await interaction.response.send_message(content=view.get_str())
+        await view.trade_initiator.restart()
+        await view.trade_receiver.restart()
+        await view.message.edit(view=view, content=view.get_str(), embeds=view.get_embeds())
+
+
+class TradeCharSelect(CharSelect):
+    def __init__(self, i, pages, page, row=0):
+        super().__init__(i, pages, page, row)
+
+    async def callback(self, i: discord.Interaction):
+        # todo make barter and trade cheks here
+        trade_initiator = TradeView(i, i.user.id, self.view.character, self.view.localization)
+        trade_receiver = TradeView(i, i.user.id, get_char(i, self.values[0], False), self.view.localization)
+        trade_manager = TradeManager(i, trade_initiator, trade_receiver, self.view.localization)
+
+        await i.response.edit_message(view=trade_manager, content=trade_manager.get_str())
+        initiator_msg = await i.followup.send(view=trade_initiator, content=trade_initiator.get_str(),
+                                              embeds=trade_initiator.get_embeds())
+        receiver_msg = await i.followup.send(view=trade_receiver, content=trade_receiver.get_str(),
+                                             embeds=trade_receiver.get_embeds())
+        trade_manager.message = i.message
+        trade_initiator.message = initiator_msg
+        trade_receiver.message = receiver_msg
+
+
+class TradeManager(GenericView):
+    def __init__(self, i, trade_initiator, trade_receiver, localization, gm=False, back_data=None):
+        super().__init__(i)
+        self.translation_data = localized_data.find_one({'request': 'trade_manager'})['local']
+        self.trade_initiator = trade_initiator
+        self.trade_receiver = trade_receiver
+        self.trade_initiator.set_manager(self)
+        self.trade_receiver.set_manager(self)
+        self.trade_receiver.receiver = True
+        self.localization = localization
+        self.message: discord.Message = None
+        self.seal_deal_btn = SecureTradeBTN(
+            get_item_from_translation_dict(self.translation_data, self.localization, 'seal_deal_btn'))
+        self.add_item(self.seal_deal_btn)
+        self.deal, self.pricing_initiator, self.pricing_receiver = self.check_overall_deal()
+
+    def get_str(self):
+        return (
+            f'{self.trade_initiator.character.char.get("name")} ініціатор обміну. {self.pricing_initiator}({self.trade_initiator.money})$\n'
+            f'{self.get_items_str(self.trade_initiator.trading_dict)}\n'
+            f'{self.trade_receiver.character.char.get("name")}. {self.pricing_receiver}({self.trade_receiver.money})$\n'
+            f'{self.get_items_str(self.trade_receiver.trading_dict)}\n')
+
+    def get_items_str(self, trading_dict):
+        generated_str = ''
+        for item in trading_dict.values():
+            generated_str += f"{item.get('quantity', 1)} {get_item_from_translation_dict(item['localization'], self.localization, 'name')}\n"
+        return generated_str
+
+    async def update_data(self):
+        self.deal, self.pricing_initiator, self.pricing_receiver = self.check_overall_deal()
+        self.rebuild()
+        await self.message.edit(content=self.get_str(), view=self)
+
+    def rebuild(self):
+        self.clear_items()
+        self.seal_deal_btn.disabled = not self.deal
+        self.add_item(self.seal_deal_btn)
+
+    def secure_trade(self):
+        if self.check_overall_deal()[0]:
+            # transferring items
+            for idx, itm in self.trade_initiator.trading_dict.items():
+                self.trade_initiator.character.remove_item_by_idx(itm, idx, itm['quantity'])
+                self.trade_receiver.character.add_item_dict(itm, itm['quantity'])
+            for idx, itm in self.trade_receiver.trading_dict.items():
+                self.trade_receiver.character.remove_item_by_idx(itm, idx, itm['quantity'])
+                self.trade_initiator.character.add_item_dict(itm, itm['quantity'])
+            # transferring money
+            self.trade_initiator.character.update('money', self.trade_initiator.character.char[
+                'money'] - self.trade_initiator.money + self.trade_receiver.money)
+            self.trade_receiver.character.update('money', self.trade_receiver.character.char[
+                'money'] - self.trade_receiver.money + self.trade_initiator.money)
+        else:
+            return False
+        return True
+
+    def check_overall_deal(self):
+        deal = True
+        self.trade_initiator.character.update_char()
+        self.trade_receiver.character.update_char()
+        initiator_inventory, initiator_weight, initiator_dict_of_inv_mods, initiator_dict_of_eq_mods = self.trade_initiator.character.read_inv()
+        receiver_inventory, receiver_weight, receiver_dict_of_inv_mods, receiver_dict_of_eq_mods = self.trade_receiver.character.read_inv()
+        initiator_inventory = initiator_inventory['inventory']
+        receiver_inventory = receiver_inventory['inventory']
+        pricing_initiator, pricing_receiver = 0, 0
+        markup = 100
+        if self.trade_receiver.character.char['type'] == 'trader':
+            markup = 50
+
+        if self.trade_initiator.money > self.trade_initiator.character.char['money'] or self.trade_receiver.money > \
+                self.trade_receiver.character.char['money']:
+            deal = False
+        for idx, itm in self.trade_initiator.trading_dict.items():
+            if initiator_inventory[idx]['quantity'] < itm['quantity'] or initiator_inventory[idx]['_id'] != itm['_id']:
+                deal = False
+            pricing_initiator += int(numpy.floor(itm['price'] / 100 * markup)) * itm['quantity']
+            if plates := itm.get('plates'):
+                for plate in plates.values():
+                    pricing_initiator += int(numpy.floor(plate.get('price', 0) / 100 * markup))
+
+        for idx, itm in self.trade_receiver.trading_dict.items():
+            if receiver_inventory[idx].get('quantity', 1) < itm.get('quantity', 1) or receiver_inventory[idx]['_id'] != itm['_id']:
+                deal = False
+            pricing_receiver += itm['price'] * 2 * itm['quantity']
+            if plates := itm.get('plates'):
+                for plate in plates.values():
+                    pricing_receiver += plate.get('price', 0)*2
+
+        pricing_initiator += self.trade_initiator.money
+        pricing_receiver += self.trade_receiver.money
+
+        if pricing_receiver > pricing_initiator:
+            deal = False
+        return deal, pricing_initiator, pricing_receiver
+
+
+class MoveItemToTradingBufferBTN(Button):
+    def __init__(self, label):
+        super().__init__(label=label, style=discord.ButtonStyle.blurple)
+
+    async def callback(self, interaction: Interaction[ClientT]) -> Any:
+        await interaction.response.send_modal(MoveItemToTradingBufferModal(self.view))
+
+
+class MoveMoneyToTradingBufferBTN(Button):
+    def __init__(self, label):
+        super().__init__(label=label, style=discord.ButtonStyle.blurple)
+
+    async def callback(self, interaction: Interaction[ClientT]) -> Any:
+        await interaction.response.send_modal(MoveMoneyToTradingBufferModal(self.view))
+
+
+class AutoMoneyBTN(Button):
+    def __init__(self, label):
+        super().__init__(label=label, style=discord.ButtonStyle.blurple)
+
+    async def callback(self, interaction: Interaction[ClientT]) -> Any:
+        view: TradeView = self.view
+        deal, pricing_initiator, pricing_receiver = view.manager.check_overall_deal()
+
+        if view.receiver:
+            if pricing_initiator > pricing_receiver:
+                self.view.money = pricing_initiator - pricing_receiver - self.view.money
+        else:
+            if pricing_receiver > pricing_initiator:
+                self.view.money = pricing_receiver - pricing_initiator - self.view.money
+
+        if self.view.money < 0:
+            self.view.money = 0
+        elif self.view.money > self.view.character.char['money']:
+            self.view.money = self.view.character.char['money']
+
+        await self.view.manager.update_data()
+        await interaction.response.edit_message()
+
+
+class MoveMoneyToTradingBufferModal(Modal):
+    def __init__(self, view):
+        self.translation_data = view.manager.translation_data
+        self.localization = view.localization
+        super().__init__(
+            title=get_item_from_translation_dict(self.translation_data, self.localization, 'move_money_modal_title'))
+        self.view: TradeView = view
+        self.number_input = TextInput(
+            label=get_item_from_translation_dict(self.translation_data, self.localization, 'move_money_modal_label'),
+            placeholder=get_item_from_translation_dict(self.translation_data, self.localization,
+                                                       'move_item_modal_placeholder'))
+        self.add_item(self.number_input)
+
+    async def on_submit(self, interaction: Interaction[ClientT], /) -> None:
+        number = int(str(self.number_input))
+        if number < 0:
+            self.view.money -= number
+            if self.view.money < 0:
+                self.view.money = 0
+        else:
+            self.view.money = number
+            if self.view.character.char['money'] < self.view.money:
+                self.view.money = self.view.character.char['money']
+        await self.view.manager.update_data()
+        await interaction.response.edit_message()
+
+
+class MoveItemToTradingBufferModal(Modal):
+    def __init__(self, view):
+        self.translation_data = view.manager.translation_data
+        self.localization = view.localization
+        super().__init__(
+            title=get_item_from_translation_dict(self.translation_data, self.localization, 'move_item_modal_title'))
+        self.view: TradeView = view
+        self.number_input = TextInput(
+            label=get_item_from_translation_dict(self.translation_data, self.localization, 'move_item_modal_label'),
+            placeholder=get_item_from_translation_dict(self.translation_data, self.localization,
+                                                       'move_item_modal_placeholder'))
+        self.add_item(self.number_input)
+
+    async def on_submit(self, interaction: Interaction[ClientT], /) -> None:
+        copied_item = deepcopy(self.view.item)
+        number = int(str(self.number_input))
+        if number <= 0:
+            if self.view.trading_dict.get(self.view.idx):
+                self.view.trading_dict[self.view.idx]['quantity'] = self.view.trading_dict[self.view.idx][
+                                                                        'quantity'] + number
+                if self.view.trading_dict[self.view.idx]['quantity'] <= 0:
+                    self.view.trading_dict.pop(self.view.idx)
+        else:
+            if number < copied_item['quantity']:
+                copied_item['quantity'] = number
+            self.view.trading_dict[self.view.idx] = copied_item
+        await self.view.manager.update_data()
+        await interaction.response.edit_message()
+
+
+class TradeView(GenericView):
+    def __init__(self, i, id_to_check, character, localization):
+        super().__init__(i)
+        self.id_to_check = id_to_check
+        self.localization = localization
+        self.character = character
+        self.manager = None
+        self.message: discord.Message = None
+        self.item = None
+        self.idx = None
+        self.receiver = False
+        super().__init__(i, row=4)
+        self.translation_data = localized_data.find_one({'request': 'inventory_view_data'})['local']
+        self.body_part_translation_data = localized_data.find_one({'request': 'body_parts'})['local']
+        self.embed_data = localized_data.find_one({'request': 'item_embed_data'})['local']
+        self.stats_data = localized_data.find_one({'request': 'stats_and_skills'})['local']
+        if not character or type(character) == bson.ObjectId:
+            character = get_char(i, character)
+        self.trading_dict = {}
+        self.character = character
+        self.max_on_page = 5
+        self.mode = 1
+        self.money = 0
+        self.move_btn = MoveItemToTradingBufferBTN(
+            get_item_from_translation_dict(self.translation_data, self.localization, 'select_item_btn'))
+        self.money_btn = MoveMoneyToTradingBufferBTN(
+            get_item_from_translation_dict(self.translation_data, self.localization, 'select_money_btn'))
+        self.auto_money_btn = AutoMoneyBTN(
+            get_item_from_translation_dict(self.translation_data, self.localization, 'auto_money_btn'))
+        self.inventory, self.weight, self.dict_of_inv_mods, self.dict_of_eq_mods = self.character.read_inv()
+        self.cycle_btn = CycleInventoryModeBTN(self.translation_data, self.localization)
+        self.pages = split_to_ns(self.inventory['inventory'], self.max_on_page)
+        if self.pages:
+            self.select = SelectItem(self.pages[self.page], self.localization, False)
+        self.rebuild(False)
+
+    def change_page(self):
+        if self.page >= len(self.pages):
+            self.page -= 1
+        self.select.replace_options()
+        self.rebuild(False)
+        return self.get_str()
+
+    def rebuild(self, add_buttons=True):
+        self.clear_items()
+        self.add_item(self.cycle_btn)
+        self.add_item(self.money_btn)
+        self.add_item(self.auto_money_btn)
+
+        if self.pages:
+            self.add_item(self.select)
+            if add_buttons:
+                if self.select.values:
+                    self.item = self.pages[self.page][int(self.select.values[0])]
+                    self.idx = int(self.select.values[0]) + self.page * self.max_on_page
+                    self.add_item(self.move_btn)
+        self.regenerate_pages()
+
+    def replace_pages(self):
+        self.inventory, self.weight, self.dict_of_inv_mods, self.dict_of_eq_mods = self.character.read_inv()
+        self.pages = split_to_ns(self.inventory['inventory'], self.max_on_page)
+
+    def get_embeds(self):
+        embed_list = []
+        if self.pages:
+            our_items = deepcopy(self.pages[self.page])
+            if not our_items[-1]:
+                our_items.pop()
+
+            for item in our_items:
+                embed_list.append(
+                    get_item_embed(item, self.body_part_translation_data, self.translation_data, self.embed_data,
+                                   self.stats_data,
+                                   self.localization, self.mode))
+        return embed_list
+
+    def set_manager(self, manager):
+        self.manager = manager
+
+    async def interaction_check(self, interaction):
+        return self.id_to_check == interaction.user.id
+
+    def get_str(self):
+        return f'{self.character.char.get("name")} {self.character.char["money"]}$\n'
+
+    async def restart(self):
+        self.money = 0
+        self.replace_pages()
+        self.page = 0
+        self.item = None
+        self.idx = None
+        self.trading_dict = {}
+        self.character.update_char()
+        await self.manager.update_data()
+        await self.message.edit(view=self, content=self.get_str(), embeds=self.get_embeds())
+        self.rebuild()

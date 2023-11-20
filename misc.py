@@ -21,6 +21,10 @@ async def gm_check(i, char, user_locale, gm):
     return check
 
 
+def is_within_radius(target_x, target_y, point_x, point_y, radius=100):
+    return ((target_x - point_x) ** 2 + (target_y - point_y) ** 2) ** 0.5 <= radius
+
+
 def get_hp_image(hp_dict):
     img = Image.open('HUD.jpg')
     img_dr = ImageDraw.Draw(img)
@@ -126,7 +130,6 @@ async def universal_updater(i: discord.Interaction, name: str, what_to_update: s
     return f'{char.char["name"]}\n{locale_name.capitalize()} = {value}\n{data}'
 
 
-
 def get_char(i, name, belongs_to_player=True, fuzzy_search_allowed=True):
     char = None
     if not name:
@@ -223,6 +226,22 @@ async def set_image(i: discord.Interaction, name: str, image: discord.Attachment
                 mes = await i.followup.send(content='', file=discord.File(buffer, filename=f'avatar.{save_format}'))
         image = mes.attachments[0].url
     char.update('img_url', image)
+
+
+async def inventory_swaper(i: discord.Interaction, name, receiver_name, mode):
+    char = get_char(i, name, False, False)
+    receiver_char = get_char(i, receiver_name, False, False)
+    match mode:
+        case 0:  # replace
+            receiver_char.update('inventory', char.char['inventory'])
+        case 1:  # add
+            for item in char.char['inventory']:
+                receiver_char.add_item_dict(item, item.get('quantity', 1))
+        case 2:  # add_to_limit
+            for item in char.char['inventory']:
+                receiver_char.add_item_dict(item, item.get('quantity', 1), True)
+
+    await i.response.send_message(content='done')
 
 
 async def say(i: discord.Interaction, name: str, what_to_say: str, gm, client, token):
