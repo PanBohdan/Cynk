@@ -1,4 +1,4 @@
-CHAR_TYPES = ['player', 'npc', 'trader', 'mutant', 'dead']
+CHAR_TYPES = ['player', 'npc', 'trader', 'mutant', 'dead', 'warehouse']
 ITEM_TYPES = ['item',
               'weapon', 'ammo', 'ammo_types',
               'detector', 'artefact',
@@ -56,7 +56,7 @@ CAN_BE_CHANGED_IN_CHAR = [
     'type',
     'owner_id', 'meters', 'money', 'radiation', 'food', 'chill', 'water', 'morale',
     'faction',
-    'coordinates', 'counter_f', 'counter_w', 'meters'
+    'coordinates', 'counter_f', 'counter_w', 'meters', 'inventory'
 ]
 CAN_BE_INT_IN_CHAR = ['meters', 'money', 'radiation', 'food', 'chill', 'water', 'morale']
 CAN_BE_STR_IN_CHAR = ['background_url', 'name', 'img_url']

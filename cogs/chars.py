@@ -11,7 +11,7 @@ from db import characters, get_localized_answer
 from db_clases import User, Character
 from static import CAN_BE_STR_IN_CHAR, CAN_BE_INT_IN_CHAR, CHAR_TYPES, FACTIONS, RESIST_LIST,  ITEM_TYPES
 from misc import chars_autocomplete, stat_and_skill_autocomplete, set_stat_or_skill, roll_stat, stats_autocomplete, \
-    lvl_up, get_char, universal_updater, clone_char, say, set_image, chars_autocomplete_for_npc, items_autocomplete
+    lvl_up, get_char, universal_updater, clone_char, say, set_image, chars_autocomplete_for_npc, items_autocomplete, inventory_swaper
 from views import char_creation_str, create_char, get_stats, chars, get_info, get_stat_view, delete_char, get_inventory_view, ShopView, checks
 from bson import json_util, ObjectId
 
@@ -198,6 +198,12 @@ class Chars(commands.GroupCog, name="chars"):
         can_pass, char, user_locale = await checks(i, name, True)
         view = ShopView(i, char, item_type, per_page, user_locale, True)
         await i.response.send_message(content=view.get_str(),view=view, embeds=view.get_embeds())
+
+    @app_commands.command(description='character_inventory_swap_description')
+    @app_commands.autocomplete(name=chars_autocomplete, receiver_name=chars_autocomplete)
+    @app_commands.choices(mode=[Choice(name='replace', value=0), Choice(name='add', value=1), Choice(name='add_to_limit', value=2), ])
+    async def inventory_swap(self, i: Interaction, mode: int, name: str, receiver_name: str):
+        await inventory_swaper(i, name, receiver_name, mode)
 
     #async def cog_app_command_error(self, i: discord.Interaction, error: app_commands.AppCommandError):
     #    user_localization = User(i.user.id, i.guild.id).get_localization()

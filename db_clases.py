@@ -491,13 +491,20 @@ class Character:
         self.char['inventory'].append(item)
         characters.update_one({'_id': self.u_id}, {"$push": {'inventory': item}})
 
-    def add_item_dict(self, new_item, quantity: int = 1):
+    def add_item_dict(self, new_item, quantity: int = 1, add_to_limit=False):
         new_item.pop('quantity')
         for n, item in enumerate(self.char['inventory']):
             item_clone = deepcopy(item)
             item_clone.pop('quantity')
             if item_clone == new_item:
                 item['quantity'] += quantity
+                if add_to_limit:
+                    if item['quantity']-quantity >= quantity:
+                        return
+                    else:
+                        if item['quantity'] > quantity:
+                            item['quantity'] = quantity
+
                 characters.update_one({'_id': self.u_id}, {"$set": {f'inventory.{n}': item}})
                 return
         new_item['quantity'] = quantity
