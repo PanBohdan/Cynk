@@ -1,4 +1,4 @@
-CHAR_TYPES = ['player', 'npc', 'trader', 'mutant', 'dead', 'warehouse']
+CHAR_TYPES = ['player', 'npc', 'trader', 'mutant', 'dead', 'warehouse', 'goods']
 ITEM_TYPES = ['item',
               'weapon', 'ammo', 'ammo_types',
               'detector', 'artefact',
