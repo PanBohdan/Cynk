@@ -9,10 +9,12 @@ from discord.ext import commands
 from cheks import check_for_stat_or_skill
 from db import characters, get_localized_answer
 from db_clases import User, Character
-from static import CAN_BE_STR_IN_CHAR, CAN_BE_INT_IN_CHAR, CHAR_TYPES, FACTIONS, RESIST_LIST,  ITEM_TYPES
+from static import CAN_BE_STR_IN_CHAR, CAN_BE_INT_IN_CHAR, CHAR_TYPES, FACTIONS, RESIST_LIST, ITEM_TYPES
 from misc import chars_autocomplete, stat_and_skill_autocomplete, set_stat_or_skill, roll_stat, stats_autocomplete, \
-    lvl_up, get_char, universal_updater, clone_char, say, set_image, chars_autocomplete_for_npc, items_autocomplete, inventory_swaper
-from views import char_creation_str, create_char, get_stats, chars, get_info, get_stat_view, delete_char, get_inventory_view, ShopView, checks
+    lvl_up, get_char, universal_updater, clone_char, say, set_image, chars_autocomplete_for_npc, items_autocomplete, \
+    inventory_swaper
+from views import char_creation_str, create_char, get_stats, chars, get_info, get_stat_view, delete_char, \
+    get_inventory_view, ShopView, checks
 from bson import json_util, ObjectId
 
 
@@ -83,14 +85,16 @@ class Chars(commands.GroupCog, name="chars"):
     @app_commands.command(description='clone_char_description')
     @app_commands.autocomplete(name=chars_autocomplete)
     @app_commands.choices(new_type=[Choice(name=typ, value=typ) for typ in CHAR_TYPES])
-    async def clone(self, i: Interaction, name: str, new_name: str = None, new_owner: discord.User = None, new_type: str = None):
+    async def clone(self, i: Interaction, name: str, new_name: str = None, new_owner: discord.User = None,
+                    new_type: str = None):
         if new_owner:
             new_owner = new_owner.id
         await clone_char(i, name, new_name, new_owner, new_type)
 
     @app_commands.command(description='edit_int_char_description')
     @app_commands.autocomplete(name=chars_autocomplete)
-    @app_commands.choices(what_to_set=[Choice(name=typ, value=typ) for typ in CAN_BE_INT_IN_CHAR], mode=[Choice(name='set', value=0), Choice(name='change', value=1)])
+    @app_commands.choices(what_to_set=[Choice(name=typ, value=typ) for typ in CAN_BE_INT_IN_CHAR],
+                          mode=[Choice(name='set', value=0), Choice(name='change', value=1)])
     async def edit_int(self, i: Interaction, mode: int, name: str, what_to_set: str, value: int):
         await universal_updater(i, name, what_to_set, value, mode)
 
@@ -108,7 +112,8 @@ class Chars(commands.GroupCog, name="chars"):
 
     @app_commands.command(description='faction_rep_char_description')
     @app_commands.autocomplete(name=chars_autocomplete)
-    @app_commands.choices(what_to_set=[Choice(name=typ, value=typ) for typ in FACTIONS], mode=[Choice(name='set', value=0), Choice(name='change', value=1)])
+    @app_commands.choices(what_to_set=[Choice(name=typ, value=typ) for typ in FACTIONS],
+                          mode=[Choice(name='set', value=0), Choice(name='change', value=1)])
     async def faction_rep(self, i: Interaction, mode: int, name: str, what_to_set: str, value: float):
         await universal_updater(i, name, what_to_set, value, mode, True)
 
@@ -136,9 +141,10 @@ class Chars(commands.GroupCog, name="chars"):
 
     @app_commands.command(description='char_get_description')
     @app_commands.autocomplete(name=chars_autocomplete)
-    @app_commands.choices(mode=[Choice(name='stats', value=0), Choice(name='info_menu', value=1), Choice(name='stats_menu', value=2),
-                                Choice(name='inventory_menu', value=3),
-                                ])
+    @app_commands.choices(
+        mode=[Choice(name='stats', value=0), Choice(name='info_menu', value=1), Choice(name='stats_menu', value=2),
+              Choice(name='inventory_menu', value=3),
+              ])
     async def get(self, i: discord.Interaction, mode: int, name: str = None):
         match mode:
             case 0:
@@ -192,20 +198,23 @@ class Chars(commands.GroupCog, name="chars"):
                 await i.response.send_message('item_removed')  # TODO add localization
 
     @app_commands.command(description='shop')
-    @app_commands.choices(item_type=[Choice(name=typ, value=typ) for typ in ITEM_TYPES], per_page=[Choice(name=str(typ), value=typ) for typ in [3, 5, 10 ]])
+    @app_commands.choices(item_type=[Choice(name=typ, value=typ) for typ in ITEM_TYPES],
+                          per_page=[Choice(name=str(typ), value=typ) for typ in [3, 5, 10]])
     @app_commands.autocomplete(name=chars_autocomplete)
     async def shop(self, i, name: str, item_type: str, per_page: int = 5):
+        await i.response.defer()
         can_pass, char, user_locale = await checks(i, name, True)
         view = ShopView(i, char, item_type, per_page, user_locale, True)
-        await i.response.send_message(content=view.get_str(),view=view, embeds=view.get_embeds())
+        await i.edit_original_response(content=view.get_str(), view=view, embeds=view.get_embeds())
 
     @app_commands.command(description='character_inventory_swap_description')
     @app_commands.autocomplete(name=chars_autocomplete, receiver_name=chars_autocomplete)
-    @app_commands.choices(mode=[Choice(name='replace', value=0), Choice(name='add', value=1), Choice(name='add_to_limit', value=2), ])
+    @app_commands.choices(
+        mode=[Choice(name='replace', value=0), Choice(name='add', value=1), Choice(name='add_to_limit', value=2), ])
     async def inventory_swap(self, i: Interaction, mode: int, name: str, receiver_name: str):
         await inventory_swaper(i, name, receiver_name, mode)
 
-    #async def cog_app_command_error(self, i: discord.Interaction, error: app_commands.AppCommandError):
+    # async def cog_app_command_error(self, i: discord.Interaction, error: app_commands.AppCommandError):
     #    user_localization = User(i.user.id, i.guild.id).get_localization()
     #    await i.response.send_message(get_localized_answer('char_error', user_localization), ephemeral=True)
     #    print(error)
