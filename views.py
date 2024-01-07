@@ -890,7 +890,7 @@ class CharsView(GenericView):
 
 
 class TradersView(GenericView):
-    def __init__(self, i, name, localization, gm=False, back_data=None):
+    def __init__(self, i, name, trade_select, localization, gm=False, back_data=None):
         super().__init__(i)
         self.character = get_char(i, name)
         self.gm = gm
@@ -899,14 +899,24 @@ class TradersView(GenericView):
         self.page = 0
         self.per_page = 25
         self.interaction = i
-        self.character_filter = {'location': self.character.char.get('location'), 'type': 'trader'}
-        self.characters = [x for x in
-                           characters.find(self.character_filter,
-                                           {'name': 1, '_id': 1, 'faction': 1, 'owner_id': 1, 'coordinates': 1})
-                           if is_within_radius(x['coordinates'][0],
-                                               x['coordinates'][1],
-                                               self.character.char['coordinates'][0],
-                                               self.character.char['coordinates'][1])]
+        if trade_select == 'traders':
+            self.character_filter = {'location': self.character.char.get('location'), 'type': 'trader'}
+            self.characters = [x for x in
+                               characters.find(self.character_filter,
+                                               {'name': 1, '_id': 1, 'faction': 1, 'owner_id': 1, 'coordinates': 1})
+                               if is_within_radius(x['coordinates'][0],
+                                                   x['coordinates'][1],
+                                                   self.character.char['coordinates'][0],
+                                                   self.character.char['coordinates'][1])]
+        elif trade_select == 'npcs':
+            self.character_filter = {'location': self.character.char.get('location'), 'type': 'npc',
+                                     'owner_id': self.character.char['owner_id']}
+            self.characters = [x for x in characters.find(self.character_filter)]
+        elif trade_select == 'players':
+            self.character_filter = {'location': self.character.char.get('location'), 'type': 'player',
+                                     'owner_id': {'$ne': self.character.char['owner_id']}}
+            self.characters = [x for x in characters.find(self.character_filter)]
+
         self.pages = split_to_ns(self.characters, self.per_page)
         if not self.pages:
             return
@@ -2959,9 +2969,9 @@ def read_map_value(m_id: bson.ObjectId, value: str):
     return map_collection.find_one({'_id': m_id})[value]
 
 
-async def trade(i, name):
+async def trade(i, name, trade_select):
     can_pass, char, user_locale = await checks(i, name, False)
-    view = TradersView(i, name, False)
+    view = TradersView(i, name, trade_select, user_locale, False)
     await i.response.send_message(content=view.get_str(), view=view, embeds=view.get_embeds())
 
 
@@ -2984,8 +2994,13 @@ class TradeCharSelect(CharSelect):
 
     async def callback(self, i: discord.Interaction):
         # todo make barter and trade cheks here
-        trade_initiator = TradeView(i, i.user.id, self.view.character, self.view.localization)
-        trade_receiver = TradeView(i, i.user.id, get_char(i, self.values[0], False), self.view.localization)
+        trade_initiator_id = i.user.id
+        receiver_char = get_char(i, self.values[0], False)
+        receiver_id = receiver_char.char['owner_id']
+        if receiver_char.char['type'] == 'trader':
+            receiver_id = trade_initiator_id
+        trade_initiator = TradeView(i, trade_initiator_id, self.view.character, self.view.localization)
+        trade_receiver = TradeView(i, receiver_id, get_char(i, self.values[0], False), self.view.localization)
         trade_manager = TradeManager(i, trade_initiator, trade_receiver, self.view.localization)
 
         await i.response.edit_message(view=trade_manager, content=trade_manager.get_str())
@@ -3066,7 +3081,7 @@ class TradeManager(GenericView):
         pricing_initiator, pricing_receiver = 0, 0
         markup = 100
         if self.trade_receiver.character.char['type'] == 'trader':
-            markup = 50
+            markup = self.trade_receiver.character.char.get('markup', 50)
 
         if self.trade_initiator.money > self.trade_initiator.character.char['money'] or self.trade_receiver.money > \
                 self.trade_receiver.character.char['money']:
@@ -3080,18 +3095,29 @@ class TradeManager(GenericView):
                     pricing_initiator += int(numpy.floor(plate.get('price', 0) / 100 * markup))
 
         for idx, itm in self.trade_receiver.trading_dict.items():
-            if receiver_inventory[idx].get('quantity', 1) < itm.get('quantity', 1) or receiver_inventory[idx]['_id'] != itm['_id']:
+            if receiver_inventory[idx].get('quantity', 1) < itm.get('quantity', 1) or receiver_inventory[idx]['_id'] != \
+                    itm['_id']:
                 deal = False
             pricing_receiver += itm['price'] * 2 * itm['quantity']
             if plates := itm.get('plates'):
                 for plate in plates.values():
-                    pricing_receiver += plate.get('price', 0)*2
+                    pricing_receiver += plate.get('price', 0) * 2
 
         pricing_initiator += self.trade_initiator.money
         pricing_receiver += self.trade_receiver.money
 
+        # basic check for trader deal
         if pricing_receiver > pricing_initiator:
             deal = False
+
+        # if initiator is npc of receiver or receiver is npc of initiator we trade for free
+        if self.trade_initiator.character.char['owner_id'] == self.trade_receiver.character.char['owner_id'] or \
+                self.trade_receiver.character.char['owner_id'] == self.trade_initiator.character.char['owner_id']:
+            deal = True
+        # elif both are not traders and they are not friends
+        elif self.trade_receiver.character.char['type'] != 'trader':
+            deal = self.trade_initiator.approves and self.trade_receiver.approves
+
         return deal, pricing_initiator, pricing_receiver
 
 
@@ -3133,6 +3159,17 @@ class AutoMoneyBTN(Button):
 
         await self.view.manager.update_data()
         await interaction.response.edit_message()
+
+
+class AproveTradeBTN(Button):
+    def __init__(self, label):
+        super().__init__(label=label, style=discord.ButtonStyle.green)
+
+    async def callback(self, interaction: Interaction[ClientT]) -> Any:
+        view: TradeView = self.view
+        view.approves = not view.approves
+        await self.view.manager.update_data()
+        await interaction.response.edit_message(content=self.view.get_str())
 
 
 class MoveMoneyToTradingBufferModal(Modal):
@@ -3203,6 +3240,7 @@ class TradeView(GenericView):
         self.item = None
         self.idx = None
         self.receiver = False
+        self.approves = False
         super().__init__(i, row=4)
         self.translation_data = localized_data.find_one({'request': 'inventory_view_data'})['local']
         self.body_part_translation_data = localized_data.find_one({'request': 'body_parts'})['local']
@@ -3221,9 +3259,12 @@ class TradeView(GenericView):
             get_item_from_translation_dict(self.translation_data, self.localization, 'select_money_btn'))
         self.auto_money_btn = AutoMoneyBTN(
             get_item_from_translation_dict(self.translation_data, self.localization, 'auto_money_btn'))
+        self.aprove_btn = AproveTradeBTN(
+            get_item_from_translation_dict(self.translation_data, self.localization, 'aprove_btn'))
         self.inventory, self.weight, self.dict_of_inv_mods, self.dict_of_eq_mods = self.character.read_inv()
         self.cycle_btn = CycleInventoryModeBTN(self.translation_data, self.localization)
         self.pages = split_to_ns(self.inventory['inventory'], self.max_on_page)
+        self.select = None
         if self.pages:
             self.select = SelectItem(self.pages[self.page], self.localization, False)
         self.rebuild(False)
@@ -3240,9 +3281,12 @@ class TradeView(GenericView):
         self.add_item(self.cycle_btn)
         self.add_item(self.money_btn)
         self.add_item(self.auto_money_btn)
+        if self.character.char['type'] != 'trader':
+            self.add_item(self.aprove_btn)
 
         if self.pages:
-            self.add_item(self.select)
+            if self.select:
+                self.add_item(self.select)
             if add_buttons:
                 if self.select.values:
                     self.item = self.pages[self.page][int(self.select.values[0])]
@@ -3275,12 +3319,17 @@ class TradeView(GenericView):
         return self.id_to_check == interaction.user.id
 
     def get_str(self):
-        return f'{self.character.char.get("name")} {self.character.char["money"]}$\n'
+        ret_str = f'{self.character.char.get("name")} {self.character.char["money"]}$\n'
+        if self.character.char['type'] != 'trader':
+            ret_str += get_item_from_translation_dict(self.translation_data, self.localization, 'we_trade') if self.approves \
+                else get_item_from_translation_dict(self.translation_data, self.localization, 'we_dont_trade')
+        return ret_str
 
     async def restart(self):
         self.money = 0
         self.replace_pages()
         self.page = 0
+        self.approves = False
         self.item = None
         self.idx = None
         self.trading_dict = {}

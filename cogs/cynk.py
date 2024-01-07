@@ -84,8 +84,9 @@ class Cynk(commands.GroupCog, name="cynk"):
 
     @app_commands.command(description='trade')
     @app_commands.autocomplete(name=player_chars_autocomplete)
-    async def trade(self, i, name: str = None):
-        await trade(i, name)
+    @app_commands.choices(trade_select=[Choice(name=typ, value=typ) for typ in ['traders', 'npcs', 'players']])
+    async def trade(self, i, trade_select: str, name: str = None):
+        await trade(i, name, trade_select)
 
 
 async def setup(client):
