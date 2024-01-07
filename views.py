@@ -3057,10 +3057,10 @@ class TradeManager(GenericView):
             # transferring items
             for idx, itm in self.trade_initiator.trading_dict.items():
                 self.trade_initiator.character.remove_item_by_idx(itm, idx, itm['quantity'])
-                self.trade_receiver.character.add_item_dict(itm, itm['quantity'])
+                self.trade_receiver.character.add_item_dict(self.trade_initiator.character.char['inventory'][idx], itm['quantity'])
             for idx, itm in self.trade_receiver.trading_dict.items():
                 self.trade_receiver.character.remove_item_by_idx(itm, idx, itm['quantity'])
-                self.trade_initiator.character.add_item_dict(itm, itm['quantity'])
+                self.trade_initiator.character.add_item_dict(self.trade_receiver.character.char['inventory'][idx], itm['quantity'])
             # transferring money
             self.trade_initiator.character.update('money', self.trade_initiator.character.char[
                 'money'] - self.trade_initiator.money + self.trade_receiver.money)

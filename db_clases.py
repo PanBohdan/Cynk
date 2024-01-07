@@ -496,7 +496,7 @@ class Character:
         for n, item in enumerate(self.char['inventory']):
             item_clone = deepcopy(item)
             item_clone.pop('quantity')
-            if item_clone == new_item:
+            if item_clone['_id'] == new_item['_id']:
                 item['quantity'] += quantity
                 if add_to_limit:
                     if item['quantity']-quantity >= quantity:
