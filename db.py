@@ -24,6 +24,8 @@ def get_localized_answer(request, locale):
     localized = localized_text.find_one({'request': request})
     if localized:
         return localized['local'].get(locale, localized['local']['default'])
+    else:
+        return request
 
 
 def get_item_from_translation_dict(translation_dict, localization, data_to_get):

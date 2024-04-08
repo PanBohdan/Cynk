@@ -2399,7 +2399,14 @@ async def health(i: discord.Interaction, name: str, gm=False):
 class ChangeHpBTN(Button):
     def __init__(self, localization, mode: int):
         self.mode = mode
-        label = get_localized_answer('change', localization) if mode == 0 else get_localized_answer('set', localization)
+        match mode:
+            case 0:
+                label = get_localized_answer('change', localization)
+            case 2:
+                label = get_localized_answer('set_max_hp', localization)
+            case _:
+                label = get_localized_answer('set', localization)
+
         super().__init__(label=label)
 
     async def callback(self, interaction: Interaction):
@@ -2419,6 +2426,7 @@ class HealthView(GenericView):
         self.gm = gm
         self.change_hp_btn = ChangeHpBTN(localization, 0)
         self.set_hp_btn = ChangeHpBTN(localization, 1)
+        self.set_max_hp = ChangeHpBTN(localization, 2)
         self.character = character
         self.back_data = back_data
         if self.back_data:
@@ -2439,6 +2447,7 @@ class HealthView(GenericView):
             if self.gm:
                 self.add_item(self.change_hp_btn)
                 self.add_item(self.set_hp_btn)
+                self.add_item(self.set_max_hp)
         if self.back_btn:
             self.add_item(self.back_btn)
 
@@ -2470,6 +2479,8 @@ class ChangeHpModal(Modal):
         match self.mode:
             case 0:
                 self.view.character.change_hp(self.view.select.values[0], num)
+            case 2:
+                self.view.character.set_max_hp(self.view.select.values[0], num)
             case _:
                 self.view.character.set_hp(self.view.select.values[0], num)
         self.view.rebuild()

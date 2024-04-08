@@ -218,6 +218,11 @@ class Character:
         self.update(body_part, (num, max_hp))
         self.update_char()
 
+    def set_max_hp(self, body_part, num):
+        current_hp, max_hp = self.char['hp'][body_part]
+        self.update(body_part, (current_hp, num))
+        self.update_char()
+
     def read(self):
         if self.u_id:
             if char := characters.find_one({'_id': self.u_id}):
