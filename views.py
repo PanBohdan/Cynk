@@ -2790,6 +2790,14 @@ class ShootView(GenericView):
 
     def rebuild(self):
         self.clear_items()
+        if self.character.char['type'] == 'mutant':
+            if not self.shooting:
+                self.add_item(self.shoot_btn)
+            else:
+                self.add_item(self.select)
+            if self.back_data:
+                self.add_item(self.back_btn)
+            return
         self.add_item(self.select)
         shoot_dict = self.shoot_dict
         if len(shoot_dict.keys()) == 4 and not self.shooting:
@@ -2823,15 +2831,18 @@ class ShootBTN(Button):
         super().__init__(label=get_item_from_translation_dict(translation_data, localization, 'shoot'))
 
     async def callback(self, interaction: Interaction):
-        ammo_to_parse = self.view.shoot_dict[3][0]
-        ammo_to_parse = ammo_to_parse.split('|')[-1]
-        if ammo_to_parse.count(','):
-            ammo_to_parse = ammo_to_parse.replace('(', '')
-            ammo_to_parse = ammo_to_parse.replace(')', '')
-            ammo_to_parse = ammo_to_parse.split(',')
-            ammo_to_parse = random.randint(int(ammo_to_parse[0]), int(ammo_to_parse[1]))
-        else:
-            ammo_to_parse = int(ammo_to_parse)
+        try:
+            ammo_to_parse = self.view.shoot_dict[3][0]
+            ammo_to_parse = ammo_to_parse.split('|')[-1]
+            if ammo_to_parse.count(','):
+                ammo_to_parse = ammo_to_parse.replace('(', '')
+                ammo_to_parse = ammo_to_parse.replace(')', '')
+                ammo_to_parse = ammo_to_parse.split(',')
+                ammo_to_parse = random.randint(int(ammo_to_parse[0]), int(ammo_to_parse[1]))
+            else:
+                ammo_to_parse = int(ammo_to_parse)
+        except KeyError:
+            ammo_to_parse = 1
         self.view.select = AmmoSelect(self.view.character, self.translation_data, self.view.localization, self.view.gun,
                                       ammo_to_parse)
         self.view.shooting = True
