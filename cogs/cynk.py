@@ -13,7 +13,7 @@ from discord import Interaction, Button, ButtonStyle
 from PIL import Image, ImageDraw
 from io import BytesIO
 from db import languages, events, locations, roles
-from db_clases import User, Location, Server
+from db_clases import User, Location, Server, Character
 from misc import set_locale_autocomplete, chunker, process_event, get_localized_answer, update_events_and_weights, \
     player_chars_autocomplete, stats_autocomplete, stat_and_skill_autocomplete, localized_data, roll_stat, lvl_up, \
     get_item_from_translation_dict, say, set_image
@@ -73,20 +73,52 @@ class Cynk(commands.GroupCog, name="cynk"):
         await i.response.send_message(get_localized_answer('char_error', user_localization), ephemeral=True)
         print(error)
 
-   # @app_commands.command(description='shop')
-   # @app_commands.choices(item_type=[Choice(name=typ, value=typ) for typ in ITEM_TYPES_NOT_GM],
+    # @app_commands.command(description='shop')
+    # @app_commands.choices(item_type=[Choice(name=typ, value=typ) for typ in ITEM_TYPES_NOT_GM],
     #                      per_page=[Choice(name=str(typ), value=typ) for typ in [3, 5, 10]])
-   # @app_commands.autocomplete(name=player_chars_autocomplete)
-   # async def shop(self, i, item_type: str, name: str = None, per_page: int = 5):
+    # @app_commands.autocomplete(name=player_chars_autocomplete)
+    # async def shop(self, i, item_type: str, name: str = None, per_page: int = 5):
     #    can_pass, char, user_locale = await checks(i, name, False)
-     #   view = ShopView(i, char, item_type, per_page, user_locale, False)
-      #  await i.response.send_message(content=view.get_str(), view=view, embeds=view.get_embeds())
+    #   view = ShopView(i, char, item_type, per_page, user_locale, False)
+    #  await i.response.send_message(content=view.get_str(), view=view, embeds=view.get_embeds())
 
     @app_commands.command(description='trade')
     @app_commands.autocomplete(name=player_chars_autocomplete)
     @app_commands.choices(trade_select=[Choice(name=typ, value=typ) for typ in ['traders', 'npcs', 'players']])
     async def trade(self, i, trade_select: str, name: str = None):
         await trade(i, name, trade_select)
+
+    @app_commands.command(description='roll_dice_description')
+    async def roll_dice(self, i: Interaction, num: int, sides: int, buff_or_debuff: int = 0, crits: bool = False):
+        if sides < 2 or num < 1:
+            await i.response.send_message(content=get_localized_answer('roll_dice_bad_sides', User(i.user.id, i.guild.id).get_localization()), ephemeral=True)
+            return
+
+        ret_str = ''
+        final_sum = 0
+        if buff_or_debuff > 0:
+            ret_str += f' + {buff_or_debuff}'
+        elif buff_or_debuff < 0:
+            ret_str += f' - {abs(buff_or_debuff)}'
+
+        final_sum += buff_or_debuff
+
+        for _ in range(num):
+            dice_sum = 0
+            dice_str = '['
+            for sign, rolled_number in Character.roll(1, sides, crits):
+                dice_str += f'{sign}{abs(rolled_number)}'
+                dice_sum += rolled_number
+            dice_str += ']'
+            if dice_sum >= 0:
+                ret_str += f' + {dice_sum}' + dice_str
+            else:
+                ret_str += f' - {abs(dice_sum)}' + dice_str
+            final_sum += dice_sum
+        # remove ret_str first two symbols
+        ret_str = ret_str[2:]
+        ret_str = f'Результат: {final_sum} = {ret_str}'
+        await i.response.send_message(content=ret_str)
 
 
 async def setup(client):

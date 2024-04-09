@@ -636,19 +636,19 @@ class Character:
         return ret_str
 
     @staticmethod
-    def roll(min_num: int, max_num: int):
+    def roll(min_num: int, max_num: int, crits=True):
         crit_fail = False
         crit_success = False
         sign = ''
         while True:
             rolled_num = random.randint(min_num, max_num)
             yield sign, rolled_num
-            if rolled_num == min_num:
+            if rolled_num == min_num and crits:
                 if not crit_success:
                     crit_fail = True
                     sign = ' - '
                 break
-            elif rolled_num == max_num:
+            elif rolled_num == max_num and crits:
                 crit_success = True
                 sign = ' + '
             else:
