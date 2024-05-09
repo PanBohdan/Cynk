@@ -138,32 +138,29 @@ SHOOT_OPTIONS = [
 ]
 STATS = {
     # WEAPONS
-    'pistols': {'skill': 'weapons', 'value': 0, 'multiplier': 1},
-    'smgs': {'skill': 'weapons', 'value': 0, 'multiplier': 1},
+    'pistols_and_smgs': {'skill': 'weapons', 'value': 0, 'multiplier': 1},
     'rifles': {'skill': 'weapons', 'value': 0, 'multiplier': 1},
     'assault_rifles': {'skill': 'weapons', 'value': 0, 'multiplier': 1},
-    'dmrs': {'skill': 'weapons', 'value': 0, 'multiplier': 1},
-    'bolt_action_rifles': {'skill': 'weapons', 'value': 0, 'multiplier': 1},
+    'bolt_action_rifles_and_dmrs': {'skill': 'weapons', 'value': 0, 'multiplier': 1},
     # HEAVY_WEAPONS
-    'amrs': {'skill': 'heavy_weapons', 'value': 0, 'multiplier': 1},
-    'machine_guns': {'skill': 'heavy_weapons', 'value': 0, 'multiplier': 1},
-    'grenade_launchers': {'skill': 'heavy_weapons', 'value': 0, 'multiplier': 1},
-    'manpads': {'skill': 'heavy_weapons', 'value': 0, 'multiplier': 1},
-    'atgms': {'skill': 'heavy_weapons', 'value': 0, 'multiplier': 1},
+    'amrs_and_machine_guns': {'skill': 'heavy_weapons', 'value': 0, 'multiplier': 1},
+    'grenade_launchers_and_manpads_and_atgms': {'skill': 'heavy_weapons', 'value': 0, 'multiplier': 1},
     # MILITARY_EDUCATION
     'sappers': {'skill': 'military_education', 'value': 0, 'multiplier': 1},
     'electronics': {'skill': 'military_education', 'value': 0, 'multiplier': 1},
+    'craft': {'skill': 'military_education', 'value': 0, 'multiplier': 1},
     'medicine': {'skill': 'military_education', 'value': 0, 'multiplier': 1},
     # RECON
     'uavs': {'skill': 'recon', 'value': 0, 'multiplier': 1},
     'nvgs': {'skill': 'recon', 'value': 0, 'multiplier': 1},
     'camouflage': {'skill': 'recon', 'value': 0, 'multiplier': 1},
+    'foraging_and_tracking': {'skill': 'recon', 'value': 0, 'multiplier': 1},
     # COMMAND
     'leadership': {'skill': 'command', 'value': 0, 'multiplier': 1},
     'tactics': {'skill': 'command', 'value': 0, 'multiplier': 1},
     # FITNESS
     'mobility': {'skill': 'fitness', 'value': 0, 'multiplier': 1},
-    'grenadier': {'skill': 'fitness', 'value': 0, 'multiplier': 1},
+    'physical_health': {'skill': 'fitness', 'value': 0, 'multiplier': 1},
 }
 
 FACTIONS = [
