@@ -211,6 +211,16 @@ EMOJIS = {
     'weight': '<:weight:1099698824739557416>',
     'modification_slots': '<:modification_slots:1101518584439636159>',
 }
+HP_DEFAULT = {
+            'head': (35, 35),
+            'thorax': (85, 85),
+            'left_arm': (60, 60),
+            'right_arm': (60, 60),
+            'stomach': (70, 70),
+            'left_leg': (65, 65),
+            'right_leg': (65, 65),
+        }
+
 admin_ids = [
     311105854223024128,
     746744738044182588,

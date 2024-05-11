@@ -7,7 +7,7 @@ from db import servers, locations, characters, events, items, localized_data, us
     get_localized_answer, get_item_from_translation_dict, map_collection
 from static import RESIST_LIST, HEAD_RESIST_LIST, BODY_RESIST_LIST, SKILLS, STATS, FACTIONS, \
     CAN_BE_CHANGED_IN_CHAR, CAN_BE_CHANGED_IN_ITEM, ITEM_LOCALIZED_FIELDS, CHAR_TYPES, HEALTH_DEBUFFS, \
-    PLATE_CARRIER_ZONES
+    PLATE_CARRIER_ZONES, HP_DEFAULT
 
 from typing import Union
 from copy import deepcopy
@@ -947,6 +947,11 @@ class Character:
 
         else:
             characters.update_one({'_id': self.char['_id']}, {'$inc': {f'stats.{upped_stat}.value': num}})
+            if stat_name == 'physical_health':
+                # we need to multiply every body part max hp by 5% for every point
+                for key, value in self.char['hp'].items():
+                    self.char['hp'][key] = (value[0], int(HP_DEFAULT[key][1]/100*(100+5*num)))
+                characters.update_one({'_id': self.char['_id']}, {'$set': {'hp': self.char['hp']}})
             return get_localized_answer('lvl_up_success', user_locale).format(
                 stat_name=stat_name,
                 old_lvl=stat['value'],
@@ -988,6 +993,16 @@ class Character:
             characters.update_one({'_id': self.char['_id']}, {'$set': {f'skills.{what_to_update}': with_what}})
         elif what_to_update in STATS:
             characters.update_one({'_id': self.char['_id']}, {'$set': {f'stats.{what_to_update}.value': with_what}})
+            if what_to_update == 'physical_health':
+                # we need to multiply every body part max hp by 5% for every point
+                for key, value in self.char['hp'].items():
+                    self.char['hp'][key] = (value[0], int(HP_DEFAULT[key][1]/100*(100+5*with_what)))
+                # if hp is more than max hp, set it to max hp
+                for key, value in self.char['hp'].items():
+                    if value[0] > value[1]:
+                        self.char['hp'][key] = (value[1], value[1])
+                characters.update_one({'_id': self.char['_id']}, {'$set': {'hp': self.char['hp']}})
+
         elif what_to_update in FACTIONS:
             characters.update_one({'_id': self.char['_id']}, {'$set': {f'frac_rep.{what_to_update}': with_what}})
         elif what_to_update in HEALTH_DEBUFFS.keys():
@@ -1060,7 +1075,7 @@ class Character:
                     # 'item_uid': {
                     #    'quantity': 1,
                     #    'modifications': [],'
-                    # }
+                    # }в
                 ],
                 'money': 3500,
                 'stashes': {  # todo
