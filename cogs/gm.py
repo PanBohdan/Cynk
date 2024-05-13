@@ -23,6 +23,10 @@ class GM(commands.GroupCog, name="gm"):
     async def mutants(self, i: Interaction):
         await chars(i, 1164511378955055136, True, False, True)
 
+    @app_commands.command(description='mutants_description')
+    async def npc(self, i: Interaction):
+        await chars(i, 1137324730765037609, True, False, True)
+
     @app_commands.command(description='all_description')
     @app_commands.autocomplete(npc_owner=chars_autocomplete_for_npc)
     async def all(self, i: discord.Interaction, user: discord.User = None, npc_owner: str = None,
