@@ -529,6 +529,90 @@ class FactionSelect(Select):
         self.placeholder = placeholder
 
 
+class OnePageStatsView(GenericView):
+    def __init__(self, i, character, localization, gm=False, back_data=None):
+        super().__init__(i)
+        self.gm = gm
+        if not character or type(character) == bson.ObjectId:
+            character = get_char(i, character)
+        self.localization_dict = localized_data.find_one({'request': 'stats_view_data'})['local']
+        self.character = character
+        self.character.update_char()
+        self.stats_data = localized_data.find_one({'request': 'stats_and_skills'})['local']
+        self.pages = []
+        # We need to split for 25 items per page
+        on_one_page = []
+        for stat, skills in self.character.get_stat_and_skill_lst(localization, self.stats_data):
+            if len(on_one_page) + 1 + len(skills) >= 20:
+                self.pages.append(on_one_page)
+                on_one_page = []
+            else:
+                on_one_page.append((stat, get_stat(stat, localization)))
+                on_one_page += [(skill, get_stat(skill, localization)) for skill in skills]
+        if on_one_page:
+            self.pages.append(on_one_page)
+        self.page = 0
+        self.localization = localization
+        self.back_data = back_data
+        if self.back_data:
+            self.back_btn = GenericToViewBTN(MainMenuView, get_localized_answer('back_btn', localization), False,
+                                             discord.ButtonStyle.blurple, [*back_data], row=4)
+        self.rebuild()
+
+    def get_str(self):
+        return ''
+
+    def change_page(self):
+        self.rebuild()
+        return self.get_str()
+
+    def rebuild(self):
+        self.clear_items()
+        # we need to make so that every row starts with skill
+        n = 0
+        already_here = 0
+        print(self.pages[self.page])
+        for item in self.pages[self.page]:
+            print(n, already_here, item[1][0])
+
+            if already_here >= 5:
+                n += 1
+                already_here = 0
+            elif item[1][0] in SKILLS and n != 0 and n != 4 and already_here-1 != 0:
+                n += 1
+                already_here = 0
+
+            self.add_item(RollOnePageBTN(item[1][1], item[1][1], row=n, style=discord.ButtonStyle.green if item[1][0] in SKILLS else discord.ButtonStyle.grey))
+            already_here += 1
+
+
+        #for n, our_items in enumerate(split_to_ns(self.pages[self.page], 5)):
+        #    for item in our_items:
+        #        self.add_item(RollOnePageBTN(item[1][1], item[1][0], row=n, style=discord.ButtonStyle.green if item[1][0] in SKILLS else discord.ButtonStyle.grey))
+        if self.back_data:
+            self.add_item(self.back_btn)
+        self.regenerate_pages()
+        print(self.children)
+
+
+class RollOnePageBTN(Button):
+    def __init__(self, label, stat, row=1, emoji=None, style=discord.ButtonStyle.gray, disabled=False):
+        super().__init__(label=label, row=row, emoji=emoji, style=style, disabled=disabled)
+        self.stat = stat
+
+    async def callback(self, i: discord.Interaction):
+        message = i.message
+        await i.response.send_modal(InputNumModal(get_localized_answer('number_input_modal', self.view.localization),
+                                                  get_localized_answer('number_input_modal_textbox_roll',
+                                                                       self.view.localization),
+                                                  roll_stat,
+                                                  self.stat,
+                                                  self.view.character.u_id,
+                                                  message,
+                                                  self.view,
+                                                  '0'))
+
+
 class StatsView(GenericView):
     def __init__(self, i, character, localization, gm=False, back_data=None):
         super().__init__(i)
@@ -1374,6 +1458,7 @@ class MainMenuView(GenericView):
             'get_health': (HealthView, 'generic', discord.ButtonStyle.green),
             'get_pda': (PDA, 'generic', discord.ButtonStyle.green),
             # 'get_trade': (TradersView, 'trade', discord.ButtonStyle.green), # todo
+            'get_stats_one_page': (OnePageStatsView, 'generic', discord.ButtonStyle.green),
         }
         self.interaction = i
         self.all_chars = all_chars
@@ -1420,7 +1505,7 @@ class MainMenuView(GenericView):
                                 row=n
                             )
                         )
-                    #case 'trade':
+                    # case 'trade':
                     #    self.add_item(
                     #        ToTradeBTN(self.localization))
         self.add_item(self.back_btn)
