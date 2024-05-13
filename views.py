@@ -571,10 +571,7 @@ class OnePageStatsView(GenericView):
         # we need to make so that every row starts with skill
         n = 0
         already_here = 0
-        print(self.pages[self.page])
         for item in self.pages[self.page]:
-            print(n, already_here, item[1][0])
-
             if already_here >= 5:
                 n += 1
                 already_here = 0
