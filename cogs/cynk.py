@@ -62,7 +62,6 @@ class Cynk(commands.GroupCog, name="cynk"):
     @roll.error
     @lvl_up.error
     @chars.error
-    @set_image.error
     async def char_error(self, i: Interaction, error: app_commands.AppCommandError):
         user_localization = User(i.user.id, i.guild.id).get_localization()
         await i.response.send_message(get_localized_answer('char_error', user_localization), ephemeral=True)
