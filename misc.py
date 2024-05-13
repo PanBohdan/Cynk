@@ -131,6 +131,8 @@ async def universal_updater(i: discord.Interaction, name: str, what_to_update: s
 
 
 def get_char(i, name, belongs_to_player=True, fuzzy_search_allowed=True):
+    if name.__class__ == Character:
+        return name
     char = None
     if not name:
         char = Character(i.guild_id, i.user.id)

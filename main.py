@@ -65,6 +65,7 @@ async def on_ready():
     await client.change_presence(status=discord.Status.online, activity=discord.Game('/цинк'))
 
     await client.wait_until_ready()
+    # print(client.guilds)
     print(f'Logged in as: {client.user.name}')
     print(f'With ID: {client.user.id}')
     print(f'Loaded cogs: {list(dict_of_cog_names_and_classes.keys())}')

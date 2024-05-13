@@ -14,7 +14,7 @@ from misc import chars_autocomplete, stat_and_skill_autocomplete, set_stat_or_sk
     lvl_up, get_char, universal_updater, clone_char, say, set_image, chars_autocomplete_for_npc, items_autocomplete, \
     inventory_swaper
 from views import char_creation_str, create_char, get_stats, chars, get_info, get_stat_view, delete_char, \
-    get_inventory_view, ShopView, checks
+    get_inventory_view, ShopView, checks, MainMenuView
 from bson import json_util, ObjectId
 
 
@@ -165,6 +165,10 @@ class Chars(commands.GroupCog, name="chars"):
     @app_commands.autocomplete(name=chars_autocomplete)
     async def say(self, i: discord.Interaction, name: str, what_to_say: str):
         await say(i, name, what_to_say, True, self.client, os.environ.get('TOKEN'))
+
+    @app_commands.command(description='panel_description')
+    async def admin_panel(self, i: Interaction):
+        await chars(i, 1164511378955055136, True, False, True)
 
     @app_commands.command(description='damage_char_description')
     @app_commands.autocomplete(name=chars_autocomplete)

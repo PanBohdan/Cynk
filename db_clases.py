@@ -189,6 +189,55 @@ class Character:
         self.faction = faction
         self.char = self.read()
 
+    # def shoot(self, target, weapon, distance, localization):
+    #     str_roll = ''
+    #     missed_shots = 0
+    #     buff_and_debuff_number = 0
+    #     for buff_or_debuff_lst in self.view.shoot_dict.values():
+    #         for buff_or_debuff in buff_or_debuff_lst:
+    #             buff_and_debuff_number += int(buff_or_debuff.split('|')[1])
+    #     for x in range(0, self.used_ammo):
+    #         temp_roll = ''
+    #         dice_str, roll = self.character.roll_dice(self.gun['stat'])
+    #         roll += buff_and_debuff_number
+    #         temp_roll += f'{roll} = {buff_and_debuff_number}+[{dice_str}]'
+    #         if roll >= int(str(self.num)):
+    #             temp_roll += f' > {self.num} '
+    #             damage_num = 0
+    #             for a in range(self.ammo['damage'][0]):
+    #                 damage_num += random.randint(1, self.ammo['damage'][0] + 1) + self.ammo['damage'][2]
+    #             pen_str = ''
+    #             pen = self.ammo['armor_penetration']
+    #             pened_last = True
+    #             if pen[0]:
+    #                 pen_str += f'Гарантовано пробиває {pen[0]} клас. '
+    #             if pen[1]:
+    #                 chosen = random.choice([(f'Не пробиває {pen[1]} клас. ', 0), (f'Пробиває {pen[1]} клас. ', 1)])
+    #                 pen_str += chosen[0]
+    #                 pened_last = chosen[1]
+    #             if pen[2]:
+    #                 if pened_last:
+    #                     pen_str += random.choice([f'Не пробиває {pen[2]} клас. ',
+    #                                               f'Не пробиває {pen[2]} клас. ',
+    #                                               f'Не пробиває {pen[2]} клас. ',
+    #                                               f'Пробиває {pen[2]} клас. '])
+    #             if not pen_str:
+    #                 'Нічого не пробиває.'
+    #             temp_roll += f'Попали! Пошкодження {damage_num}, {pen_str}'
+    #             str_roll += temp_roll
+    #             str_roll += '\n'
+    #         else:
+    #             missed_shots += 1
+    #
+    #     str_roll += f"Мимо цілі полетіло {missed_shots} пострілів"
+    #     chunks = chunker(str_roll)
+    #     self.character.remove_item_by_id(self.ammo['_id'], self.used_ammo)
+    #
+    #     for chunk in chunks:
+    #         await i.followup.send(content=chunk)
+    #     self.view.reset()
+    #     await self.message.edit(content=self.view.get_str(), view=self.view)
+
     def road_prov(self, price):
         src = self.read()
         food, water, counter_f, counter_w = src['food'], src['water'], src['counter_f'], src['counter_w']

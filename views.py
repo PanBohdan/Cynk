@@ -899,6 +899,7 @@ class TradersView(GenericView):
         self.page = 0
         self.per_page = 25
         self.interaction = i
+        print(trade_select)
         if trade_select == 'traders':
             self.character_filter = {'location': self.character.char.get('location'), 'type': 'trader'}
             self.characters = [x for x in
@@ -1368,11 +1369,13 @@ class MainMenuView(GenericView):
         super().__init__(i)
         self.menu_options = {
             # 'get_info': InfoView,
-            'get_stats': StatsView,
-            'get_inventory': InventoryView,
-            'get_health': HealthView,
-            'get_pda': PDA
+            'get_stats': (StatsView, 'generic', discord.ButtonStyle.green),
+            'get_inventory': (InventoryView, 'generic', discord.ButtonStyle.green),
+            'get_health': (HealthView, 'generic', discord.ButtonStyle.green),
+            'get_pda': (PDA, 'generic', discord.ButtonStyle.green),
+            # 'get_trade': (TradersView, 'trade', discord.ButtonStyle.green), # todo
         }
+        self.interaction = i
         self.all_chars = all_chars
         self.selected_char = selected_char
         self.gm = gm
@@ -1386,11 +1389,49 @@ class MainMenuView(GenericView):
 
     def rebuild(self):
         self.clear_items()
-        if self.select.values:
-            self.select.placeholder = get_item_from_translation_dict(self.localized_data, self.localization,
-                                                                     self.select.values[0])
-        self.add_item(self.select)
+        # if self.select.values:
+        #     self.select.placeholder = get_item_from_translation_dict(self.localized_data, self.localization,
+        #                                                              self.select.values[0])
+        # self.add_item(self.select)
+        for n, keys in enumerate(split_to_ns(list(self.menu_options.keys()), 5)):
+            for key in keys:
+                view = self.menu_options[key][0]
+                button_type = self.menu_options[key][1]
+                color = self.menu_options[key][2]
+                match button_type:
+                    case 'generic':
+                        self.add_item(
+                            GenericToViewBTN(
+                                view,
+                                get_item_from_translation_dict(self.localized_data, self.localization, key),
+                                False,
+                                color,
+                                [
+                                    self.interaction, self.selected_char, self.localization, self.gm,
+                                    (
+                                        self.interaction,
+                                        self.owner_id,
+                                        self.gm,
+                                        self.all_chars,
+                                        self.selected_char,
+                                        self.localization
+                                    )
+                                ],
+                                row=n
+                            )
+                        )
+                    #case 'trade':
+                    #    self.add_item(
+                    #        ToTradeBTN(self.localization))
         self.add_item(self.back_btn)
+
+
+class ToTradeBTN(Button):
+    def __init__(self, localization):
+        super().__init__(label=get_localized_answer('trade_btn', localization), style=discord.ButtonStyle.green)
+
+    async def callback(self, i: discord.Interaction):
+        await trade(i, self.view.selected_char, 'traders')
 
 
 def crop_bars(image, number, limit):
@@ -3079,10 +3120,12 @@ class TradeManager(GenericView):
             # transferring items
             for idx, itm in self.trade_initiator.trading_dict.items():
                 self.trade_initiator.character.remove_item_by_idx(itm, idx, itm['quantity'])
-                self.trade_receiver.character.add_item_dict(self.trade_initiator.character.char['inventory'][idx], itm['quantity'])
+                self.trade_receiver.character.add_item_dict(self.trade_initiator.character.char['inventory'][idx],
+                                                            itm['quantity'])
             for idx, itm in self.trade_receiver.trading_dict.items():
                 self.trade_receiver.character.remove_item_by_idx(itm, idx, itm['quantity'])
-                self.trade_initiator.character.add_item_dict(self.trade_receiver.character.char['inventory'][idx], itm['quantity'])
+                self.trade_initiator.character.add_item_dict(self.trade_receiver.character.char['inventory'][idx],
+                                                             itm['quantity'])
             # transferring money
             self.trade_initiator.character.update('money', self.trade_initiator.character.char[
                 'money'] - self.trade_initiator.money + self.trade_receiver.money)
@@ -3343,7 +3386,8 @@ class TradeView(GenericView):
     def get_str(self):
         ret_str = f'{self.character.char.get("name")} {self.character.char["money"]}$\n'
         if self.character.char['type'] != 'trader':
-            ret_str += get_item_from_translation_dict(self.translation_data, self.localization, 'we_trade') if self.approves \
+            ret_str += get_item_from_translation_dict(self.translation_data, self.localization,
+                                                      'we_trade') if self.approves \
                 else get_item_from_translation_dict(self.translation_data, self.localization, 'we_dont_trade')
         return ret_str
 
