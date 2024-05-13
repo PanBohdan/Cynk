@@ -59,11 +59,6 @@ class Cynk(commands.GroupCog, name="cynk"):
     async def say(self, i: Interaction, what_to_say: str, name: str = None):
         await say(i, name, what_to_say, False, self.client, os.environ.get('TOKEN'))
 
-    @app_commands.command(description='set_char_image_description')
-    @app_commands.autocomplete(name=player_chars_autocomplete)
-    async def set_image(self, i: Interaction, image: discord.Attachment, name: str = None):
-        await set_image(i, name, image, False)
-
     @roll.error
     @lvl_up.error
     @chars.error
