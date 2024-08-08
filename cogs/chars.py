@@ -14,7 +14,7 @@ from misc import chars_autocomplete, stat_and_skill_autocomplete, set_stat_or_sk
     lvl_up, get_char, universal_updater, clone_char, say, set_image, chars_autocomplete_for_npc, items_autocomplete, \
     inventory_swaper
 from views import char_creation_str, create_char, get_stats, chars, get_info, get_stat_view, delete_char, \
-    get_inventory_view, ShopView, checks, MainMenuView
+    get_inventory_view, ShopView, checks, MainMenuView, shoot
 from bson import json_util, ObjectId
 
 
@@ -171,10 +171,9 @@ class Chars(commands.GroupCog, name="chars"):
         await chars(i, 1164511378955055136, True, False, True)
 
     @app_commands.command(description='damage_char_description')
-    @app_commands.autocomplete(name=chars_autocomplete)
-    @app_commands.choices(damage_type=[Choice(name=typ, value=typ) for typ in RESIST_LIST])
-    async def damage(self, i: discord.Interaction, name: str, damage_type: str, dmg: int, armor_damage: int = 1):
-        await damage(i, name, damage_type, dmg, armor_damage)
+    @app_commands.autocomplete(who_is_shooting=chars_autocomplete, who_is_shot=chars_autocomplete)
+    async def shoot(self, i: discord.Interaction, who_is_shooting: str, who_is_shot: str):
+        await shoot(i, who_is_shooting, who_is_shot)
 
     @app_commands.command(description='chars_description')
     @app_commands.autocomplete(npc_owner=chars_autocomplete_for_npc)

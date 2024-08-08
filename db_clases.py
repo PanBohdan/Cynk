@@ -189,54 +189,86 @@ class Character:
         self.faction = faction
         self.char = self.read()
 
-    # def shoot(self, target, weapon, distance, localization):
-    #     str_roll = ''
-    #     missed_shots = 0
-    #     buff_and_debuff_number = 0
-    #     for buff_or_debuff_lst in self.view.shoot_dict.values():
-    #         for buff_or_debuff in buff_or_debuff_lst:
-    #             buff_and_debuff_number += int(buff_or_debuff.split('|')[1])
-    #     for x in range(0, self.used_ammo):
-    #         temp_roll = ''
-    #         dice_str, roll = self.character.roll_dice(self.gun['stat'])
-    #         roll += buff_and_debuff_number
-    #         temp_roll += f'{roll} = {buff_and_debuff_number}+[{dice_str}]'
-    #         if roll >= int(str(self.num)):
-    #             temp_roll += f' > {self.num} '
-    #             damage_num = 0
-    #             for a in range(self.ammo['damage'][0]):
-    #                 damage_num += random.randint(1, self.ammo['damage'][0] + 1) + self.ammo['damage'][2]
-    #             pen_str = ''
-    #             pen = self.ammo['armor_penetration']
-    #             pened_last = True
-    #             if pen[0]:
-    #                 pen_str += f'Гарантовано пробиває {pen[0]} клас. '
-    #             if pen[1]:
-    #                 chosen = random.choice([(f'Не пробиває {pen[1]} клас. ', 0), (f'Пробиває {pen[1]} клас. ', 1)])
-    #                 pen_str += chosen[0]
-    #                 pened_last = chosen[1]
-    #             if pen[2]:
-    #                 if pened_last:
-    #                     pen_str += random.choice([f'Не пробиває {pen[2]} клас. ',
-    #                                               f'Не пробиває {pen[2]} клас. ',
-    #                                               f'Не пробиває {pen[2]} клас. ',
-    #                                               f'Пробиває {pen[2]} клас. '])
-    #             if not pen_str:
-    #                 'Нічого не пробиває.'
-    #             temp_roll += f'Попали! Пошкодження {damage_num}, {pen_str}'
-    #             str_roll += temp_roll
-    #             str_roll += '\n'
-    #         else:
-    #             missed_shots += 1
-    #
-    #     str_roll += f"Мимо цілі полетіло {missed_shots} пострілів"
-    #     chunks = chunker(str_roll)
-    #     self.character.remove_item_by_id(self.ammo['_id'], self.used_ammo)
-    #
-    #     for chunk in chunks:
-    #         await i.followup.send(content=chunk)
-    #     self.view.reset()
-    #     await self.message.edit(content=self.view.get_str(), view=self.view)
+    def get_target_treshold(self):
+        num = 5
+        moblity = self.get_stat_or_skill('mobility')[0]
+        tactics = self.get_stat_or_skill('tactics')[0]
+        if moblity > tactics:
+            num += moblity
+        else:
+            num += tactics
+
+        return num
+
+    def shoot(self, target):
+        target_treshold = target.get_target_treshold()
+        used_ammo = 10
+        options = []
+        inventory, _, _, _ = self.read_inv()
+        our_equipped = inventory['equipped']
+        inventory = inventory['inventory']
+        gun = None
+        they_equipped, _, _, _ = target.read_inv()
+        they_equipped = they_equipped['equipped']
+        body_parts_defence = {
+            key: 0 for key in HEALTH_DEBUFFS.keys()
+        }
+        body_parts_damage = {
+            key: 0 for key in HEALTH_DEBUFFS.keys()
+        }
+
+        for item in they_equipped:
+            if item['type'] == 'armor':
+                for key, value in body_parts_defence.items():
+                    if item.get(key, 0) > value:
+                        body_parts_defence[key] = item.get(key, 0)
+        print(body_parts_defence)
+        for item in our_equipped:
+            if item['type'] == 'weapon':
+                gun = item
+                break
+        if not gun:
+            raise Exception('No gun equipped')
+        ammo_options = []
+        for item in inventory:
+            if item['quantity'] >= used_ammo and item.get('ammo_type') == gun['ammo_type']:
+                ammo_options.append(item)
+        if not ammo_options:
+            raise Exception('No ammo')
+        ammo = random.choice(ammo_options)
+        str_roll = ''
+        missed_shots = 0
+        buff_and_debuff_number = 0
+        total_damage = 0
+        # for buff_or_debuff_lst in self.view.shoot_dict.values():
+        #     for buff_or_debuff in buff_or_debuff_lst:
+        #         buff_and_debuff_number += int(buff_or_debuff.split('|')[1])
+        for x in range(0, used_ammo):
+            dice_str, roll = self.roll_dice(gun['stat'])
+            roll += buff_and_debuff_number
+            if roll >= target_treshold:
+                damage_num = 0
+                for a in range(ammo['damage'][0]):
+                    damage_num += random.randint(1, ammo['damage'][0] + 1) + ammo['damage'][2]
+                pen_str = ''
+                pen = ammo['armor_penetration']
+                max_pen = 0
+                if pen[0]:
+                    max_pen = pen[0]
+                if pen[1]:
+                    if pen[1] > max_pen and random.randint(0, 1):
+                        max_pen = pen[1]
+                if pen[2]:
+                    if pen[2] > max_pen and random.randint(0, 3) == 0:
+                        max_pen = pen[2]
+                # select body part
+                body_part = random.choice(list(HEALTH_DEBUFFS.keys()))
+                if body_parts_defence[body_part] > max_pen:
+                    body_parts_damage[body_part] += damage_num
+            else:
+                missed_shots += 1
+
+        return body_parts_damage, missed_shots
 
     def road_prov(self, price):
         src = self.read()
@@ -429,8 +461,9 @@ class Character:
                                                   {'$unset': {f'inventory.{n}.plates.{body_part_name}': ''}})
                         else:
                             itm['plates'][body_part_name] = items.find_one({'_id': plate.get('_id')})
-                            char['inventory'][n]['weight'] = char['inventory'][n]['weight'] + itm['plates'][body_part_name][
-                                'weight']
+                            char['inventory'][n]['weight'] = char['inventory'][n]['weight'] + \
+                                                             itm['plates'][body_part_name][
+                                                                 'weight']
 
             item_weight = round(Item.get_item_weight(itm, dict_of_inv_mods), 3)
             char['inventory'][n]['weight'] = item_weight
@@ -452,11 +485,13 @@ class Character:
                 for body_part_name in PLATE_CARRIER_ZONES.keys():
                     if plate := plates.get(body_part_name):
                         if not items.find_one({'_id': plate.get('_id')}):
-                            characters.update_one({'_id': self.u_id}, {'$unset': {f'equipped.{n}.plates.{body_part_name}': ''}})
+                            characters.update_one({'_id': self.u_id},
+                                                  {'$unset': {f'equipped.{n}.plates.{body_part_name}': ''}})
                         else:
                             itm['plates'][body_part_name] = items.find_one({'_id': plate.get('_id')})
-                            char['equipped'][n]['weight'] = char['equipped'][n]['weight'] + itm['plates'][body_part_name][
-                                'weight']
+                            char['equipped'][n]['weight'] = char['equipped'][n]['weight'] + \
+                                                            itm['plates'][body_part_name][
+                                                                'weight']
 
             weight += item_weight * itm['quantity']
 
@@ -528,7 +563,8 @@ class Character:
                 for body_part_name in PLATE_CARRIER_ZONES.keys():
                     if plate := plates.get(body_part_name):
                         if not items.find_one({'_id': plate.get('_id')}):
-                            characters.update_one({'_id': self.u_id}, {'$unset': {f'equipped.{n}.plates.{body_part_name}': ''}})
+                            characters.update_one({'_id': self.u_id},
+                                                  {'$unset': {f'equipped.{n}.plates.{body_part_name}': ''}})
                         else:
                             itm['plates'][body_part_name] = items.find_one({'_id': plate.get('_id')})
 
@@ -553,7 +589,7 @@ class Character:
             if item_clone['_id'] == new_item['_id']:
                 item['quantity'] += quantity
                 if add_to_limit:
-                    if item['quantity']-quantity >= quantity:
+                    if item['quantity'] - quantity >= quantity:
                         return
                     else:
                         if item['quantity'] > quantity:
@@ -763,9 +799,9 @@ class Character:
                             bonus_str += f' + {buff["num"]}'
                         else:
                             bonus_str += f' - {buff["num"]}'
-        if int(numpy.floor(weight/20)) > 0 and stat_or_skill == 'mobility':
-            bonus_num -= int(numpy.floor(weight/20))
-            bonus_str += f' - {int(numpy.floor(weight/20))}'
+        if int(numpy.floor(weight / 20)) > 0 and stat_or_skill == 'mobility':
+            bonus_num -= int(numpy.floor(weight / 20))
+            bonus_str += f' - {int(numpy.floor(weight / 20))}'
 
         final_sum += bonus_num
         if bonus_num:
@@ -999,7 +1035,7 @@ class Character:
             if stat_name == 'physical_health':
                 # we need to multiply every body part max hp by 5% for every point
                 for key, value in self.char['hp'].items():
-                    self.char['hp'][key] = (value[0], int(HP_DEFAULT[key][1]/100*(100+5*num)))
+                    self.char['hp'][key] = (value[0], int(HP_DEFAULT[key][1] / 100 * (100 + 5 * num)))
                 characters.update_one({'_id': self.char['_id']}, {'$set': {'hp': self.char['hp']}})
             return get_localized_answer('lvl_up_success', user_locale).format(
                 stat_name=stat_name,
@@ -1045,7 +1081,7 @@ class Character:
             if what_to_update == 'physical_health':
                 # we need to multiply every body part max hp by 5% for every point
                 for key, value in self.char['hp'].items():
-                    self.char['hp'][key] = (value[0], int(HP_DEFAULT[key][1]/100*(100+5*with_what)))
+                    self.char['hp'][key] = (value[0], int(HP_DEFAULT[key][1] / 100 * (100 + 5 * with_what)))
                 # if hp is more than max hp, set it to max hp
                 for key, value in self.char['hp'].items():
                     if value[0] > value[1]:

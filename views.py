@@ -540,15 +540,19 @@ class OnePageStatsView(GenericView):
         self.character.update_char()
         self.stats_data = localized_data.find_one({'request': 'stats_and_skills'})['local']
         self.pages = []
+
         # We need to split for 25 items per page
         on_one_page = []
         for stat, skills in self.character.get_stat_and_skill_lst(localization, self.stats_data):
+            print(stat, skills)
             if len(on_one_page) + 1 + len(skills) >= 20:
                 self.pages.append(on_one_page)
-                on_one_page = []
+                on_one_page = [(stat, get_stat(stat, localization))]
+                on_one_page += [(skill, get_stat(skill, localization)) for skill in skills]
             else:
                 on_one_page.append((stat, get_stat(stat, localization)))
                 on_one_page += [(skill, get_stat(skill, localization)) for skill in skills]
+
         if on_one_page:
             self.pages.append(on_one_page)
         self.page = 0
@@ -575,21 +579,20 @@ class OnePageStatsView(GenericView):
             if already_here >= 5:
                 n += 1
                 already_here = 0
-            elif item[1][0] in SKILLS and n != 0 and n != 4 and already_here-1 != 0:
+            elif item[1][0] in SKILLS and n != 0 and n != 4 and already_here - 1 != 0:
                 n += 1
                 already_here = 0
 
-            self.add_item(RollOnePageBTN(item[1][1], item[1][1], row=n, style=discord.ButtonStyle.green if item[1][0] in SKILLS else discord.ButtonStyle.grey))
+            self.add_item(RollOnePageBTN(item[1][1], item[1][1], row=n, style=discord.ButtonStyle.green if item[1][
+                                                                                                               0] in SKILLS else discord.ButtonStyle.grey))
             already_here += 1
 
-
-        #for n, our_items in enumerate(split_to_ns(self.pages[self.page], 5)):
+        # for n, our_items in enumerate(split_to_ns(self.pages[self.page], 5)):
         #    for item in our_items:
         #        self.add_item(RollOnePageBTN(item[1][1], item[1][0], row=n, style=discord.ButtonStyle.green if item[1][0] in SKILLS else discord.ButtonStyle.grey))
         if self.back_data:
             self.add_item(self.back_btn)
         self.regenerate_pages()
-        print(self.children)
 
 
 class RollOnePageBTN(Button):
@@ -919,6 +922,31 @@ class DeleteCharBTN(Button):
         await delete_char(i, self.view.select.values[0], self.view)
 
 
+class AutoShootView(GenericView):
+    def __init__(self, i, who_is_shooting: Character, who_is_shot: Character, gm=True, back_data=None):
+        super().__init__(i)
+        self.who_is_shooting = who_is_shooting
+        self.who_is_shot = who_is_shot
+        self.gm = gm
+        self.back_data = back_data
+        self.localization = User(i.user.id, i.guild_id).get_localization()
+        if self.back_data:
+            self.back_btn = GenericToViewBTN(MainMenuView, get_localized_answer('back_btn', self.localization), False,
+                                             discord.ButtonStyle.blurple, [*back_data], row=4)
+        self.rebuild()
+
+    def get_str(self):
+        return self.who_is_shooting.shoot(self.who_is_shot)[0]
+
+    def change_page(self):
+        self.rebuild()
+        return self.get_str()
+
+    def rebuild(self):
+        self.clear_items()
+        self.regenerate_pages()
+
+
 class CharsView(GenericView):
     def __init__(self, i: discord.Interaction, owner_id: int, gm: bool, all_chars: bool):
         super().__init__(i)
@@ -980,7 +1008,6 @@ class TradersView(GenericView):
         self.page = 0
         self.per_page = 25
         self.interaction = i
-        print(trade_select)
         if trade_select == 'traders':
             self.character_filter = {'location': self.character.char.get('location'), 'type': 'trader'}
             self.characters = [x for x in
@@ -1530,6 +1557,11 @@ async def chars(i: discord.Interaction, owner_id, gm, all_chars=False, skip_chec
         await checks(i, None, gm)
     view = CharsView(i, owner_id, gm, all_chars)
     await i.response.send_message(content=view.get_str(), view=view)
+
+
+async def shoot(i: discord.Interaction, who_is_shooting, who_is_shot):
+    view = AutoShootView(i, get_char(i, who_is_shooting), get_char(i, who_is_shooting))
+    await i.response.send_message(content=view.get_str(), view=view, embeds=view.get_embeds())
 
 
 async def get_inventory_view(i: discord.Interaction, name, gm=False):
