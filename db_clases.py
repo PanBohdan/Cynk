@@ -5,9 +5,9 @@ import numpy
 
 from db import servers, locations, characters, events, items, localized_data, users, roles, \
     get_localized_answer, get_item_from_translation_dict, map_collection
-from static import RESIST_LIST, HEAD_RESIST_LIST, BODY_RESIST_LIST, SKILLS, STATS, FACTIONS, \
+from static import RESIST_LIST, SKILLS, STATS, FACTIONS, \
     CAN_BE_CHANGED_IN_CHAR, CAN_BE_CHANGED_IN_ITEM, ITEM_LOCALIZED_FIELDS, CHAR_TYPES, HEALTH_DEBUFFS, \
-    PLATE_CARRIER_ZONES, HP_DEFAULT
+    PLATE_CARRIER_ZONES, HP_DEFAULT, CLOSEST_ZONES
 
 from typing import Union
 from copy import deepcopy
@@ -191,19 +191,37 @@ class Character:
 
     def get_target_treshold(self):
         num = 5
-        moblity = self.get_stat_or_skill('mobility')[0]
+        mobility = self.get_stat_or_skill('mobility')[0]
         tactics = self.get_stat_or_skill('tactics')[0]
-        if moblity > tactics:
-            num += moblity
+        if mobility > tactics:
+            num += mobility
         else:
             num += tactics
 
         return num
 
-    def shoot(self, target):
+    def damage(self, num, body_part):
+        dead = False
+        # if body_part hp less than 0 we distribute damage to other body parts that have hp.
+        self.char['hp'][body_part][0] -= num
+
+        if self.char['hp'][body_part][0] <= 0:
+            if body_part == 'head' or body_part == 'torso':
+                return True
+            if self.char['hp'][body_part][0] < 0:
+                exceeding_damage = abs(self.char['hp'][body_part][0])
+                self.char['hp'][body_part][0] = 0
+                damage_divider = len(CLOSEST_ZONES[body_part])
+                damage_per_zone = int(math.ceil(exceeding_damage / damage_divider))
+                for body_part in CLOSEST_ZONES[body_part]:
+                    if self.char['hp'][body_part][0] > 0:
+                        self.damage(damage_per_zone, body_part)
+        self.update(body_part, self.char['hp'][body_part])
+        return dead
+
+    def shoot(self, target, used_ammo=10):
+        shooting_log = []
         target_treshold = target.get_target_treshold()
-        used_ammo = 10
-        options = []
         inventory, _, _, _ = self.read_inv()
         our_equipped = inventory['equipped']
         inventory = inventory['inventory']
@@ -222,7 +240,10 @@ class Character:
                 for key, value in body_parts_defence.items():
                     if item.get(key, 0) > value:
                         body_parts_defence[key] = item.get(key, 0)
-        print(body_parts_defence)
+            if item['type'] == 'plate_carrier':
+                for zone, plate in item['plates'].items():
+                    if plate['plate_class'] > body_parts_defence[zone]:
+                        body_parts_defence[zone] = plate['plate_class']
         for item in our_equipped:
             if item['type'] == 'weapon':
                 gun = item
@@ -236,21 +257,20 @@ class Character:
         if not ammo_options:
             raise Exception('No ammo')
         ammo = random.choice(ammo_options)
-        str_roll = ''
         missed_shots = 0
         buff_and_debuff_number = 0
-        total_damage = 0
+        shoot_str = ''
         # for buff_or_debuff_lst in self.view.shoot_dict.values():
         #     for buff_or_debuff in buff_or_debuff_lst:
         #         buff_and_debuff_number += int(buff_or_debuff.split('|')[1])
         for x in range(0, used_ammo):
             dice_str, roll = self.roll_dice(gun['stat'])
             roll += buff_and_debuff_number
+            shoot_str += f'{dice_str} = {roll}\n'
             if roll >= target_treshold:
                 damage_num = 0
                 for a in range(ammo['damage'][0]):
                     damage_num += random.randint(1, ammo['damage'][0] + 1) + ammo['damage'][2]
-                pen_str = ''
                 pen = ammo['armor_penetration']
                 max_pen = 0
                 if pen[0]:
@@ -263,12 +283,34 @@ class Character:
                         max_pen = pen[2]
                 # select body part
                 body_part = random.choice(list(HEALTH_DEBUFFS.keys()))
-                if body_parts_defence[body_part] > max_pen:
-                    body_parts_damage[body_part] += damage_num
+                penetrated = False
+                if body_parts_defence[body_part] <= max_pen:
+                    penetrated = True
+                    body_parts_damage[body_part] = damage_num + body_parts_damage[body_part]
+                shooting_log.append({
+                    'target_threshold': target_treshold,
+                    'roll': roll,
+                    'ammo': ammo,
+                    'gun': gun,
+                    'missed': False,
+                    'used_ammo': used_ammo,
+                    'damage': damage_num,
+                    'penetrated': penetrated,
+                    'body_part': body_part,
+                    'armor_penetration': max_pen,
+                    'body_parts_defence': body_parts_defence[body_part]
+                })
             else:
                 missed_shots += 1
-
-        return body_parts_damage, missed_shots
+                shooting_log.append({
+                    'target_threshold': target_treshold,
+                    'roll': roll,
+                    'ammo': ammo,
+                    'gun': gun,
+                    'missed': True,
+                    'used_ammo': used_ammo,
+                })
+        return shooting_log, ammo
 
     def road_prov(self, price):
         src = self.read()

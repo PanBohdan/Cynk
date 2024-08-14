@@ -29,7 +29,13 @@ PLATE_CARRIER_ZONES = {
     'left_arm': 'arms_protection',
     'right_leg': 'legs_protection',
     'left_leg': 'legs_protection',
-
+}
+CLOSEST_ZONES = {
+    'right_leg': ['left_leg', 'stomach'],
+    'left_leg': ['right_leg', 'stomach'],
+    'right_arm': ['stomach', 'thorax'],
+    'left_arm': ['stomach', 'thorax'],
+    'stomach': ['right_leg', 'left_leg', 'thorax'],
 }
 ZONES = [
     'thorax_protection',

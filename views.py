@@ -922,6 +922,21 @@ class DeleteCharBTN(Button):
         await delete_char(i, self.view.select.values[0], self.view)
 
 
+def interpreted_logs(logs, localization, body_part_dict):
+    ret_str = ''
+    for entry in logs:
+        if entry.get('missed', True):
+            ret_str += f'Промах! Поріг {entry["target_threshold"]}, кидок {entry["roll"]}\n'
+        else:
+            if entry.get('penetrated', False):
+                ret_str += (f'Влучили! Поріг {entry["target_threshold"]}, кидок {entry["roll"]}, '
+                            f'Шкоди нанесено {entry["damage"]}. Місце влучання {get_item_from_translation_dict(body_part_dict, localization, entry["body_part"])} було захищене {entry["body_parts_defence"]} класом. '
+                            f'Але куля пробила {entry["armor_penetration"]} клас.\n')
+            else:
+                ret_str += f'Влучили! Поріг {entry["target_threshold"]}, кидок {entry["roll"]}. Місце влучання {get_item_from_translation_dict(body_part_dict, localization, entry["body_part"])} було захищене {entry["body_parts_defence"]} класом. А куля могла пробити лишень {entry["armor_penetration"]} клас.\n'
+    return ret_str
+
+
 class AutoShootView(GenericView):
     def __init__(self, i, who_is_shooting: Character, who_is_shot: Character, gm=True, back_data=None):
         super().__init__(i)
@@ -930,13 +945,15 @@ class AutoShootView(GenericView):
         self.gm = gm
         self.back_data = back_data
         self.localization = User(i.user.id, i.guild_id).get_localization()
+        self.body_part_data = localized_data.find_one({'request': 'body_parts'})['local']
         if self.back_data:
             self.back_btn = GenericToViewBTN(MainMenuView, get_localized_answer('back_btn', self.localization), False,
                                              discord.ButtonStyle.blurple, [*back_data], row=4)
         self.rebuild()
 
     def get_str(self):
-        return self.who_is_shooting.shoot(self.who_is_shot)[0]
+        return interpreted_logs(self.who_is_shooting.shoot(self.who_is_shot)[0], self.localization,
+                                self.body_part_data)[:2000]
 
     def change_page(self):
         self.rebuild()
@@ -1560,7 +1577,7 @@ async def chars(i: discord.Interaction, owner_id, gm, all_chars=False, skip_chec
 
 
 async def shoot(i: discord.Interaction, who_is_shooting, who_is_shot):
-    view = AutoShootView(i, get_char(i, who_is_shooting), get_char(i, who_is_shooting))
+    view = AutoShootView(i, get_char(i, who_is_shooting), get_char(i, who_is_shot))
     await i.response.send_message(content=view.get_str(), view=view, embeds=view.get_embeds())
 
 
