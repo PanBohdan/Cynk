@@ -7,17 +7,17 @@ from discord.app_commands import Choice
 from discord.ext import commands
 
 from cheks import check_for_stat_or_skill
-from db import characters, get_localized_answer
+from db import characters, get_localized_answer, localized_data
 from db_clases import User, Character
-from static import CAN_BE_STR_IN_CHAR, CAN_BE_INT_IN_CHAR, CHAR_TYPES, FACTIONS, RESIST_LIST, ITEM_TYPES
+from static import CAN_BE_STR_IN_CHAR, CAN_BE_INT_IN_CHAR, CHAR_TYPES, FACTIONS, PLATE_CARRIER_ZONES, ITEM_TYPES
 from misc import chars_autocomplete, stat_and_skill_autocomplete, set_stat_or_skill, roll_stat, stats_autocomplete, \
     lvl_up, get_char, universal_updater, clone_char, say, set_image, chars_autocomplete_for_npc, items_autocomplete, \
     inventory_swaper
 from views import char_creation_str, create_char, get_stats, chars, get_info, get_stat_view, delete_char, \
-    get_inventory_view, ShopView, checks, MainMenuView, shoot
+    get_inventory_view, ShopView, checks, MainMenuView, shoot, interpreted_logs
 from bson import json_util, ObjectId
-
-
+from copy import deepcopy
+import random
 async def get_character_autocomplete(interaction: discord.Interaction, current: str) -> List[Choice[str]]:
     choices = [str(x['_id']) for x in characters.find({'guild_id': interaction.guild_id})]
     return [
@@ -170,11 +170,67 @@ class Chars(commands.GroupCog, name="chars"):
     async def admin_panel(self, i: Interaction):
         await chars(i, 1164511378955055136, True, False, True)
 
-    @app_commands.command(description='damage_char_description')
+    @app_commands.command(description='shoot_char_description')
     @app_commands.autocomplete(who_is_shooting=chars_autocomplete, who_is_shot=chars_autocomplete)
     async def shoot(self, i: discord.Interaction, who_is_shooting: str, who_is_shot: str):
         await shoot(i, who_is_shooting, who_is_shot)
 
+    @app_commands.command(description='test_autofight')
+    async def test_autofight(self, i: discord.Interaction):
+        localizations = User(i.user.id, i.guild.id).get_localization()
+        body_part_data = localized_data.find_one({'request': 'body_parts'})['local']
+        await i.response.send_message('test_autofight')
+        char1 = get_char(i, '66bdede72e088008748e1b46')
+        char2 = get_char(i, '66bdedc92e088008748e1b45')
+        char3 = get_char(i, '66bdeda22e088008748e1b44')
+        char4 = get_char(i, '66bded872e088008748e1b43')
+        for char in [char1, char2, char3, char4]:
+            for body_part in char.char['hp'].keys():
+                current = char.char['hp'][body_part]
+                current = (current[1], current[1])
+                char.update(body_part, current)
+        team_1 = [char1, char2]
+        team_2 = [char3, char4]
+        await i.followup.send(f'{team_1[0].char["name"]} and {team_1[1].char["name"]} vs {team_2[0].char["name"]} and {team_2[1].char["name"]}')
+        initiative_pool = []
+        dead_chars = []
+        for char in team_1 + team_2:
+            initiative_pool.append((char.roll_dice('mobility')[1], char))
+        initiative_pool.sort(key=lambda x: x[0], reverse=True)
+        await i.followup.send(f'Initiative pool: {[(x[1].char["name"], x[0]) for x in initiative_pool]}')
+        while len(dead_chars) < 3:
+            for _, char in initiative_pool:
+                if char in dead_chars:
+                    continue
+                if char in team_1:
+                    target = team_2
+                else:
+                    target = team_1
+                target = [x for x in target if x not in dead_chars]
+                if len(target) == 0:
+                    break
+                target = random.choice(target)
+                await i.followup.send(f'{char.char["name"]} attacks {target.char["name"]}')
+                log, ammo, body_part_damage = char.shoot(target)
+                await i.followup.send(interpreted_logs(log, localizations, body_part_data))
+                for body_part, damage in body_part_damage.items():
+                    if not damage:
+                        continue
+                    target.damage(damage, body_part)
+                    await i.followup.send(f'{target.char["name"]} takes {damage} damage to {body_part}')
+                    if target.is_dead():
+                        dead_chars.append(target)
+                        await i.followup.send(f'{target.char["name"]} is dead')
+                        break
+            await i.followup.send(f'End of round\n'
+                                  f'current hp:\n'
+                                  'Team 1:\n'
+                                  f'{team_1[0].char["name"]}: {team_1[0].char["hp"]}\n'
+                                  f'{team_1[1].char["name"]}: {team_1[1].char["hp"]}\n'
+                                  'Team 2:\n'
+                                  f'{team_2[0].char["name"]}: {team_2[0].char["hp"]}\n'
+                                  f'{team_2[1].char["name"]}: {team_2[1].char["hp"]}')
+            await i.followup.send('Round')
     @app_commands.command(description='chars_description')
     @app_commands.autocomplete(npc_owner=chars_autocomplete_for_npc)
     async def chars(self, i: discord.Interaction, user: discord.User = None, npc_owner: str = None,

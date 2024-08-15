@@ -36,6 +36,8 @@ CLOSEST_ZONES = {
     'right_arm': ['stomach', 'thorax'],
     'left_arm': ['stomach', 'thorax'],
     'stomach': ['right_leg', 'left_leg', 'thorax'],
+    'thorax': ['right_arm', 'left_arm', 'stomach', 'head'],
+    'head': ['thorax']
 }
 ZONES = [
     'thorax_protection',

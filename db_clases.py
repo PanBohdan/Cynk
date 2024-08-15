@@ -200,24 +200,25 @@ class Character:
 
         return num
 
-    def damage(self, num, body_part):
-        dead = False
+    def is_dead(self):
+        if self.char['hp']['head'][0] <= 0 or self.char['hp']['thorax'][0] <= 0:
+            return True
+        return False
+    def damage(self, num, body_part, level=0):
         # if body_part hp less than 0 we distribute damage to other body parts that have hp.
-        self.char['hp'][body_part][0] -= num
-
+        self.char['hp'][body_part][0] = self.char['hp'][body_part][0] - num
         if self.char['hp'][body_part][0] <= 0:
-            if body_part == 'head' or body_part == 'torso':
-                return True
             if self.char['hp'][body_part][0] < 0:
                 exceeding_damage = abs(self.char['hp'][body_part][0])
                 self.char['hp'][body_part][0] = 0
+                self.update(body_part, self.char['hp'][body_part])
                 damage_divider = len(CLOSEST_ZONES[body_part])
                 damage_per_zone = int(math.ceil(exceeding_damage / damage_divider))
-                for body_part in CLOSEST_ZONES[body_part]:
-                    if self.char['hp'][body_part][0] > 0:
-                        self.damage(damage_per_zone, body_part)
-        self.update(body_part, self.char['hp'][body_part])
-        return dead
+                for other_part in CLOSEST_ZONES[body_part]:
+                    if level < 4:
+                        self.damage(damage_per_zone, other_part, level + 1)
+        else:
+            self.update(body_part, self.char['hp'][body_part])
 
     def shoot(self, target, used_ammo=10):
         shooting_log = []
@@ -310,7 +311,7 @@ class Character:
                     'missed': True,
                     'used_ammo': used_ammo,
                 })
-        return shooting_log, ammo
+        return shooting_log, ammo, body_parts_damage
 
     def road_prov(self, price):
         src = self.read()
