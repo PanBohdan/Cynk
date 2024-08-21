@@ -200,6 +200,17 @@ class Character:
 
         return num
 
+    def get_guns(self):
+        inv, _, _, _ = self.read_inv()
+        inv = inv['equipped']
+        guns = []
+        for item in inv:
+            if item['type'] == 'weapon':
+                guns.append(item)
+        print(guns)
+        return guns
+
+
     def is_dead(self):
         if self.char['hp']['head'][0] <= 0 or self.char['hp']['thorax'][0] <= 0:
             return True
@@ -220,13 +231,9 @@ class Character:
         else:
             self.update(body_part, self.char['hp'][body_part])
 
-    def shoot(self, target, used_ammo=10):
+    def shoot(self, target, gun, ammo, used_ammo, buff_and_debuff_number):
         shooting_log = []
         target_treshold = target.get_target_treshold()
-        inventory, _, _, _ = self.read_inv()
-        our_equipped = inventory['equipped']
-        inventory = inventory['inventory']
-        gun = None
         they_equipped, _, _, _ = target.read_inv()
         they_equipped = they_equipped['equipped']
         body_parts_defence = {
@@ -245,21 +252,7 @@ class Character:
                 for zone, plate in item['plates'].items():
                     if plate['plate_class'] > body_parts_defence[zone]:
                         body_parts_defence[zone] = plate['plate_class']
-        for item in our_equipped:
-            if item['type'] == 'weapon':
-                gun = item
-                break
-        if not gun:
-            raise Exception('No gun equipped')
-        ammo_options = []
-        for item in inventory:
-            if item['quantity'] >= used_ammo and item.get('ammo_type') == gun['ammo_type']:
-                ammo_options.append(item)
-        if not ammo_options:
-            raise Exception('No ammo')
-        ammo = random.choice(ammo_options)
         missed_shots = 0
-        buff_and_debuff_number = 0
         shoot_str = ''
         # for buff_or_debuff_lst in self.view.shoot_dict.values():
         #     for buff_or_debuff in buff_or_debuff_lst:
@@ -311,7 +304,7 @@ class Character:
                     'missed': True,
                     'used_ammo': used_ammo,
                 })
-        return shooting_log, ammo, body_parts_damage
+        return shooting_log
 
     def road_prov(self, price):
         src = self.read()

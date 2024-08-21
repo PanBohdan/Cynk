@@ -1577,8 +1577,37 @@ async def chars(i: discord.Interaction, owner_id, gm, all_chars=False, skip_chec
 
 
 async def shoot(i: discord.Interaction, who_is_shooting, who_is_shot):
-    view = AutoShootView(i, get_char(i, who_is_shooting), get_char(i, who_is_shot))
+    user_locale = User(i.user.id, i.guild_id).get_localization()
+    view = SelectGunView(i, who_is_shooting, who_is_shot)
     await i.response.send_message(content=view.get_str(), view=view, embeds=view.get_embeds())
+
+
+class SelectGunView(GenericView):
+    def __init__(self, i: discord.Interaction, who_is_shooting, who_is_shot):
+        super().__init__(i)
+        self.who_is_shooting = get_char(i, who_is_shooting)
+        self.who_is_shot = get_char(i, who_is_shot)
+        self.localization = User(i.user.id, i.guild_id).get_localization()
+        self.guns = self.who_is_shooting.get_guns()
+        self.select = SelectGuns(self.guns, self.localization)
+        self.rebuild()
+
+    def rebuild(self):
+        self.clear_items()
+        self.add_item(self.select)
+
+class SelectGuns(Select):
+    def __init__(self, guns, localization):
+        super().__init__(options=[
+                                     SelectOption(
+                                         label=get_item_from_translation_dict(gun['localization'], localization,
+                                                                              'name'),
+                                         value=n) for n, gun in enumerate(guns)
+                                 ][:25])
+
+    async def callback(self, i: discord.Interaction):
+        shoot_view = ShootView(i, self.view.who_is_shooting, self.view.guns[int(self.values[0])], self.view.who_is_shot)
+        await i.response.edit_message(content=shoot_view.get_str(), view=shoot_view, embeds=shoot_view.get_embeds())
 
 
 async def get_inventory_view(i: discord.Interaction, name, gm=False):
@@ -1795,12 +1824,7 @@ class InventoryView(GenericView):
                         #             self.dict_of_eq_mods, self.localization, 1,
                         #             (self.i, self.character, self.localization, self.gm, self.back_data))
                         #         self.add_item(self.unmodify_btn)
-                        if item['type'] == 'weapon':
-                            self.shoot_btn.n_args = (self.i, self.character, item,
-                                                     [self.i, self.character, self.localization, self.gm,
-                                                      self.back_data])
-                            self.add_item(self.shoot_btn)
-                        elif item['type'] == 'plate_carrier':
+                        if item['type'] == 'plate_carrier':
                             self.plate_carrier_btn.n_args = (
                                 self.i, self.character, item, idx, self.localization, self.gm,
                                 [self.i, self.character, self.localization, self.gm, self.back_data])
@@ -2933,9 +2957,10 @@ class HealthSelect(Select):
 
 
 class ShootView(GenericView):
-    def __init__(self, i, character, gun, back_data=None):
+    def __init__(self, i, character, gun, who_is_shot, back_data=None):
         super().__init__(i)
         self.localization = User(i.user.id, i.guild_id).get_localization()
+        self.who_is_shot = who_is_shot
         self.character = character
         self.gun = gun
         self.pages = SHOOT_OPTIONS
@@ -3044,16 +3069,34 @@ class AmmoSelect(Select):
         return options
 
     async def callback(self, interaction: Interaction):
-        await interaction.response.send_modal(
-            ShootModal(
-                self.character,
-                self.gun,
-                items.find_one({'_id': bson.ObjectId(self.values[0])}),
-                self.used_ammo,
-                interaction.message,
-                self.view,
-            )
-        )
+        await interaction.response.defer()
+        body_part_localization = localized_data.find_one({'request': 'body_parts'})['local']
+        ammo = items.find_one({'_id': bson.ObjectId(self.values[0])})
+        str_roll = ''
+        missed_shots = 0
+        buff_and_debuff_number = 0
+        for buff_or_debuff_lst in self.view.shoot_dict.values():
+            for buff_or_debuff in buff_or_debuff_lst:
+                buff_and_debuff_number += int(buff_or_debuff.split('|')[1])
+        shooting_log = self.view.character.shoot(self.view.who_is_shot, self.gun, ammo, self.used_ammo, buff_and_debuff_number)
+        for entry in shooting_log:
+            if entry.get('penetrated'):
+                self.view.who_is_shot.damage(entry['damage'], entry['body_part'])
+                str_roll += f"{entry['roll']} >= {entry['target_threshold']}. Влучили в {get_item_from_translation_dict(body_part_localization, self.view.localization, entry['body_part'])} на {entry['damage']} шкоди.\n"
+            else:
+                if entry.get('missed'):
+                    str_roll += f"{entry['roll']} < {entry['target_threshold']}. Промахнулись\n"
+                else:
+                    str_roll += f"{entry['roll']} >= {entry['target_threshold']}. Влучили в {get_item_from_translation_dict(body_part_localization, self.view.localization, entry['body_part'])}, але не пробили броню {entry['body_parts_defence']}, куля пробивала {entry['armor_penetration']} клас.\n"
+
+        chunks = chunker(str_roll)
+        self.character.remove_item_by_id(ammo['_id'], self.used_ammo)
+
+        for chunk in chunks:
+            await interaction.followup.send(content=chunk)
+        self.view.reset()
+        await self.message.edit(content=self.view.get_str(), view=self.view)
+
 
 
 class ShootModal(Modal):
@@ -3080,40 +3123,17 @@ class ShootModal(Modal):
         for buff_or_debuff_lst in self.view.shoot_dict.values():
             for buff_or_debuff in buff_or_debuff_lst:
                 buff_and_debuff_number += int(buff_or_debuff.split('|')[1])
-        for x in range(0, self.used_ammo):
-            temp_roll = ''
-            dice_str, roll = self.character.roll_dice(self.gun['stat'])
-            roll += buff_and_debuff_number
-            temp_roll += f'{roll} = {buff_and_debuff_number}+[{dice_str}]'
-            if roll >= int(str(self.num)):
-                temp_roll += f' > {self.num} '
-                damage_num = 0
-                for a in range(self.ammo['damage'][0]):
-                    damage_num += random.randint(1, self.ammo['damage'][0] + 1) + self.ammo['damage'][2]
-                pen_str = ''
-                pen = self.ammo['armor_penetration']
-                pened_last = True
-                if pen[0]:
-                    pen_str += f'Гарантовано пробиває {pen[0]} клас. '
-                if pen[1]:
-                    chosen = random.choice([(f'Не пробиває {pen[1]} клас. ', 0), (f'Пробиває {pen[1]} клас. ', 1)])
-                    pen_str += chosen[0]
-                    pened_last = chosen[1]
-                if pen[2]:
-                    if pened_last:
-                        pen_str += random.choice([f'Не пробиває {pen[2]} клас. ',
-                                                  f'Не пробиває {pen[2]} клас. ',
-                                                  f'Не пробиває {pen[2]} клас. ',
-                                                  f'Пробиває {pen[2]} клас. '])
-                if not pen_str:
-                    'Нічого не пробиває.'
-                temp_roll += f'Попали! Пошкодження {damage_num}, {pen_str}'
-                str_roll += temp_roll
-                str_roll += '\n'
+        shooting_log = self.view.character.shoot(self.view.who_is_shot, self.gun, self.ammo, int(str(self.num)), buff_and_debuff_number)
+        for entry in shooting_log:
+            if entry.get('penetrated'):
+                self.view.who_is_shot.damage(entry['damage'], entry['body_part'])
+                str_roll += f"{entry['roll']} >= {entry['target_threshold']}. Влучили в {entry['body_part']} на {entry['damage']} шкоди.\n"
             else:
-                missed_shots += 1
+                if entry.get('missed'):
+                    str_roll += f"{entry['roll']} < {entry['target_threshold']}. Промахнулись\n"
+                else:
+                    str_roll += f"{entry['roll']} >= {entry['target_threshold']}. Влучили в {entry['body_part']}, але не пробили броню {entry['body_parts_defence']}, куля пробивала {entry['armor_penetration']} клас.\n"
 
-        str_roll += f"Мимо цілі полетіло {missed_shots} пострілів"
         chunks = chunker(str_roll)
         self.character.remove_item_by_id(self.ammo['_id'], self.used_ammo)
 
