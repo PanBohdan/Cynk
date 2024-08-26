@@ -157,3 +157,5 @@ images
 credentials.json
 secret_files.py
 /playground
+/backend/static/
+/node_modules/

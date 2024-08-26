@@ -8,8 +8,8 @@ import bson
 import discord.ext.commands
 from discord import app_commands, Interaction
 from discord.ext import commands
-from discord.ui import View, Button
-
+from discord.ui import View, Button, Modal, TextInput
+import re
 import db
 from db import get_localized_answer, characters, map_collection
 from db_clases import User, Server
@@ -72,6 +72,27 @@ class Admin(commands.GroupCog, name="admin"):
     @app_commands.command()
     async def fixer(self, i: Interaction):
         map_collection.update_many({}, {'$set': {'map_uid': bson.ObjectId('64d21f30f5e681a0db294bd4')}})
+
+    @app_commands.command()
+    async def reader(self, i: Interaction, channel: discord.TextChannel):
+        text = ''
+        # По нормальному це пишете в файлик певно чи де зручно
+        async for message in channel.history(oldest_first=True):
+            text += message.author.name + ' ' + message.content + '\n'
+        print(text)
+class RegistrationModal(Modal):
+    def __init__(self):
+        super().__init__(title='Registration')
+        self.email = TextInput(label='Enter email')
+        self.add_item(self.email)
+
+    async def on_submit(self, i: discord.Interaction):
+        match = re.match(r"^\S+@\S+\.\S+$", self.email.value)
+        if match:
+            await i.response.send_message(content='Email is valid', ephemeral=True)
+        else:
+            await i.response.send_message(content='Email is invalid', ephemeral=True)
+
 
 class VoteButton(Button):
     def __init__(self, label, style, vote_yes, emoji=''):
