@@ -2,22 +2,22 @@ import os
 from typing import List
 
 import discord
+from bson import json_util, ObjectId
 from discord import app_commands, Interaction
 from discord.app_commands import Choice
 from discord.ext import commands
 
 from cheks import check_for_stat_or_skill
-from db import characters, get_localized_answer, localized_data
+from db import characters, get_localized_answer
 from db_clases import User, Character
-from static import CAN_BE_STR_IN_CHAR, CAN_BE_INT_IN_CHAR, CHAR_TYPES, FACTIONS, PLATE_CARRIER_ZONES, ITEM_TYPES
 from misc import chars_autocomplete, stat_and_skill_autocomplete, set_stat_or_skill, roll_stat, stats_autocomplete, \
     lvl_up, get_char, universal_updater, clone_char, say, set_image, chars_autocomplete_for_npc, items_autocomplete, \
     inventory_swaper
+from static import CAN_BE_STR_IN_CHAR, CAN_BE_INT_IN_CHAR, CHAR_TYPES, FACTIONS, ITEM_TYPES
 from views import char_creation_str, create_char, get_stats, chars, get_info, get_stat_view, delete_char, \
-    get_inventory_view, ShopView, checks, MainMenuView, shoot, interpreted_logs
-from bson import json_util, ObjectId
-from copy import deepcopy
-import random
+    get_inventory_view, ShopView, checks, shoot
+
+
 async def get_character_autocomplete(interaction: discord.Interaction, current: str) -> List[Choice[str]]:
     choices = [str(x['_id']) for x in characters.find({'guild_id': interaction.guild_id})]
     return [

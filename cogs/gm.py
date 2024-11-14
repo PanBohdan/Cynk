@@ -1,21 +1,9 @@
-import os
-from typing import List
-
 import discord
 from discord import app_commands, Interaction
-from discord.app_commands import Choice
 from discord.ext import commands
 
-from cheks import check_for_stat_or_skill
-from db import characters, get_localized_answer
-from db_clases import User, Character
-from static import CAN_BE_STR_IN_CHAR, CAN_BE_INT_IN_CHAR, CHAR_TYPES, FACTIONS, RESIST_LIST, ITEM_TYPES
-from misc import chars_autocomplete, stat_and_skill_autocomplete, set_stat_or_skill, roll_stat, stats_autocomplete, \
-    lvl_up, get_char, universal_updater, clone_char, say, set_image, chars_autocomplete_for_npc, items_autocomplete, \
-    inventory_swaper
-from views import char_creation_str, create_char, get_stats, chars, get_info, get_stat_view, delete_char, \
-    get_inventory_view, ShopView, checks, MainMenuView
-from bson import json_util, ObjectId
+from misc import get_char, chars_autocomplete_for_npc
+from views import chars
 
 
 class GM(commands.GroupCog, name="gm"):

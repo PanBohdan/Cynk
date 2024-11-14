@@ -10,11 +10,13 @@ from discord.ext import commands
 from db_clases import Item, User
 
 from misc import items_autocomplete, set_locale_autocomplete, check_for_server_default, \
-    stat_and_skill_autocomplete, get_stat, ammo_types_autocomplete, available_formats, get_localized_answer, localized_data, items_buff_autocomplete
+    stat_and_skill_autocomplete, get_stat, ammo_types_autocomplete, available_formats, get_localized_answer, \
+    localized_data, items_buff_autocomplete
 from views import get_item_embed
 from static import ITEM_TYPES, CAN_BE_NUM_IN_ITEM, ITEM_LOCALIZED_FIELDS, CAN_BE_BOOL_IN_ITEM, \
     CAN_BE_INT_IN_CHAR, PLATE_TYPES
 import io
+
 
 class Items(commands.GroupCog, name="items"):
     def __init__(self, client):
@@ -36,7 +38,8 @@ class Items(commands.GroupCog, name="items"):
                           legs_protection=[Choice(name=typ, value=typ) for typ in PLATE_TYPES + ['none']])
     async def create_plate_carrier(self, i: Interaction, name: str, description: str, price: int,
                                    weight: float, modification_slots: int,
-                                   thorax_protection: str, stomach_protection: str, arms_protection: str, legs_protection: str):
+                                   thorax_protection: str, stomach_protection: str, arms_protection: str,
+                                   legs_protection: str):
         if stomach_protection == 'none':
             stomach_protection = None
         if thorax_protection == 'none':
@@ -185,7 +188,9 @@ class Items(commands.GroupCog, name="items"):
         body_part_translation_data = localized_data.find_one({'request': 'body_parts'})['local']
         embed_data = localized_data.find_one({'request': 'item_embed_data'})['local']
         stats_data = localized_data.find_one({'request': 'stats_and_skills'})['local']
-        await i.response.send_message(embeds=[get_item_embed(item.item, body_part_translation_data, translation_data, embed_data, stats_data, user.get_localization(), 2)])
+        await i.response.send_message(embeds=[
+            get_item_embed(item.item, body_part_translation_data, translation_data, embed_data, stats_data,
+                           user.get_localization(), 2)])
 
     @app_commands.command(description='add_buff_action_to_item')
     @app_commands.autocomplete(name=items_buff_autocomplete, what_to_buff=stat_and_skill_autocomplete)
@@ -206,7 +211,8 @@ class Items(commands.GroupCog, name="items"):
 
     @app_commands.command(description='set_damage_or_pen_description')
     @app_commands.autocomplete(name=items_buff_autocomplete)
-    @app_commands.choices(what_to_set=[Choice(name='damage', value='damage'), Choice(name='armor_penetration', value='armor_penetration')])
+    @app_commands.choices(what_to_set=[Choice(name='damage', value='damage'),
+                                       Choice(name='armor_penetration', value='armor_penetration')])
     async def set_damage_or_pen_description(self, i: Interaction, name: str, what_to_set: str, x: int, y: int, z: int):
         item = Item(i.guild_id, bson.ObjectId(name))
         user = User(i.user.id, i.guild_id)
@@ -231,7 +237,6 @@ class Items(commands.GroupCog, name="items"):
         user = User(i.user.id, i.guild_id)
         item.clear_buff_actions()
         await i.response.send_message(content='todo  OK')
-
 
 
 async def setup(client):

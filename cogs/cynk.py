@@ -1,26 +1,16 @@
 import os
-import pprint
-import random
 
-import discord.ext.commands
-import numpy
-from discord import SelectOption
+from discord import Interaction
 from discord import app_commands
-from discord.ext import commands
-from discord.ui import Select, View
 from discord.app_commands import Choice
-from discord import Interaction, Button, ButtonStyle
-from PIL import Image, ImageDraw
-from io import BytesIO
-from db import languages, events, locations, roles
-from db_clases import User, Location, Server, Character
-from misc import set_locale_autocomplete, chunker, process_event, get_localized_answer, update_events_and_weights, \
-    player_chars_autocomplete, stats_autocomplete, stat_and_skill_autocomplete, localized_data, roll_stat, lvl_up, \
-    get_item_from_translation_dict, say, set_image
-from placeholders import move_url_placeholder
-from views import ManualView, chars, get_stats, get_info, get_stat_view, checks, get_inventory_view, pda, health, \
-    ShopView, TradersView, trade
-from static import ITEM_TYPES_NOT_GM
+from discord.ext import commands
+
+from db import languages
+from db_clases import User, Character
+from misc import set_locale_autocomplete, get_localized_answer, player_chars_autocomplete, stats_autocomplete, \
+    stat_and_skill_autocomplete, roll_stat, lvl_up, \
+    say
+from views import chars, trade
 
 
 class Cynk(commands.GroupCog, name="cynk"):
