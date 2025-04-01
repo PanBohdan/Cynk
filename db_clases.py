@@ -618,10 +618,12 @@ class Character:
         characters.update_one({'_id': self.u_id}, {"$push": {'inventory': item}})
 
     def add_item_dict(self, new_item, quantity: int = 1, add_to_limit=False):
-        new_item.pop('quantity')
+        if new_item.get('quantity'):
+            new_item.pop('quantity')
         for n, item in enumerate(self.char['inventory']):
             item_clone = deepcopy(item)
-            item_clone.pop('quantity')
+            if item_clone.get('quantity'):
+                item_clone.pop('quantity')
             if item_clone['_id'] == new_item['_id']:
                 item['quantity'] += quantity
                 if add_to_limit:
@@ -636,7 +638,7 @@ class Character:
         new_item['quantity'] = quantity
         self.char['inventory'].append(new_item)
         characters.update_one({'_id': self.u_id}, {"$push": {'inventory': new_item}})
-
+        
     def add_modification(self, item, idx, modification_id):
         if self.char['equipped'][idx]['_id'] == item['_id']:
             self.char['equipped'][idx]['modifications'].append({modification_id})
